@@ -50,6 +50,16 @@ echo 'export ASANA_API_KEY=your_api_key_here' >> ~/.zshrc
 source ~/.zshrc
 ```
 
+### Troubleshooting: Certificate Errors
+
+If you encounter SSL certificate errors (e.g., "unable to verify the first certificate" or "self signed certificate in certificate chain"), especially when running from Cursor or behind corporate proxies, you can disable TLS certificate validation:
+
+```bash
+NODE_TLS_REJECT_UNAUTHORIZED=0 node index.js search-tasks --assignee.any me
+```
+
+⚠️ **Note:** Disabling certificate verification should only be used in development environments. This makes your connection less secure.
+
 ## CLI Commands
 
 ### Show Available Commands

@@ -6,42 +6,60 @@
             "request": "launch",
             "name": "Find Projects by Name",
             "program": "${workspaceFolder}/index.js",
-            "args": ["projects", "--name", "${input:projectName}"]
+            "args": ["projects", "--name", "${input:projectName}"],
+            "env": {
+                "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+            }
         },
         {
             "type": "node",
             "request": "launch",
             "name": "Find Projects (Table)",
             "program": "${workspaceFolder}/index.js",
-            "args": ["projects", "--name", "${input:projectName}", "--format", "table"]
+            "args": ["projects", "--name", "${input:projectName}", "--format", "table"],
+            "env": {
+                "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+            }
         },
         {
             "type": "node",
             "request": "launch",
             "name": "Find Active Projects",
             "program": "${workspaceFolder}/index.js",
-            "args": ["projects", "--archived", "false", "--format", "table"]
+            "args": ["projects", "--archived", "false", "--format", "table"],
+            "env": {
+                "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+            }
         },
         {
             "type": "node",
             "request": "launch",
             "name": "Fetch My Tasks",
             "program": "${workspaceFolder}/index.js",
-            "args": ["tasks"]
+            "args": ["tasks"],
+            "env": {
+                "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+            }
         },
         {
             "type": "node",
             "request": "launch",
             "name": "Fetch Completed Tasks",
             "program": "${workspaceFolder}/index.js",
-            "args": ["completed"]
+            "args": ["completed"],
+            "env": {
+                "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+            }
         },
         {
             "type": "node",
             "request": "launch",
             "name": "Show User Info",
             "program": "${workspaceFolder}/index.js",
-            "args": ["user"]
+            "args": ["user"],
+            "env": {
+                "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+            }
         }
     ],
     "inputs": [
