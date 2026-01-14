@@ -124,14 +124,26 @@ if (require.main === module) {
                     const taskGidToFetch = process.argv[3];
                     if (!taskGidToFetch) {
                         console.log('Please provide a task GID');
-                        console.log('Usage: node index.js task <task_gid>');
+                        console.log('Usage: node index.js task <task_gid> [--format markdown|html|text]');
                         process.exit(1);
                     }
+                    
+                    // Parse format option (default: markdown)
+                    let noteFormat = 'markdown';
+                    const formatIndex = process.argv.indexOf('--format');
+                    if (formatIndex > -1 && process.argv[formatIndex + 1]) {
+                        noteFormat = process.argv[formatIndex + 1];
+                        if (!['markdown', 'html', 'text'].includes(noteFormat)) {
+                            console.log('Invalid format. Use: markdown, html, or text');
+                            process.exit(1);
+                        }
+                    }
+                    
                     const taskDetails = await getTask(tasksApiInstance, taskGidToFetch);
                     // Fetch comment count
                     const taskStories = await getTaskStories(storiesApiInstance, taskGidToFetch, { commentsOnly: true });
                     taskDetails.commentCount = taskStories.length;
-                    displayTaskDetails(taskDetails);
+                    displayTaskDetails(taskDetails, { noteFormat });
                     break;
                 
                 case 'task-comments':

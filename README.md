@@ -97,14 +97,25 @@ node index.js completed
 Get detailed information about a specific task by its GID:
 
 ```bash
-node index.js task <task_gid>
+node index.js task <task_gid> [--format markdown|html|text]
 ```
 
-**Example:**
+**Format Options:**
+- `markdown` (default) - Shows notes with clean markdown formatting (bold, lists, code blocks, links)
+- `html` - Shows raw HTML from Asana (useful for debugging or copying formatted content)
+- `text` - Shows plain text without any formatting
+
+**Examples:**
 
 ```bash
-# Get details of task with GID 1234567890
+# Get details with default markdown formatting
 node index.js task 1234567890
+
+# View raw HTML
+node index.js task 1234567890 --format html
+
+# View stripped plain text
+node index.js task 1234567890 --format text
 ```
 
 **Output includes:**
@@ -119,19 +130,19 @@ node index.js task 1234567890
 - Subtasks (with names, GIDs, and completion status)
 - Number of likes/hearts
 - Number of comments
-- Full notes/description
+- Full notes/description (formatted as markdown by default)
 
 **⚠️ Important Note About Task Descriptions:**
 
-When viewing task details, the description is shown from the `notes` field (plain text). Asana converts HTML to plain text which means:
-- Bold text appears as `**text**` (markdown-style)
-- Links lose their display text and show only URLs
-- User @mentions become profile URLs
+By default, task descriptions are displayed as **clean markdown** (converted from HTML). This ensures:
+- Proper formatting with **bold**, *italic*, `code`, and lists
+- Clickable links displayed as `[text](url)`
+- User @mentions shown as `[@Name](url)`
+- Agents see properly formatted text and won't break formatting when updating
 
-**To preserve full formatting when copying/editing descriptions:**
-1. The `html_notes` field contains the original HTML with all formatting
-2. Use `--html_notes` when updating to preserve @mentions and link text
-3. Or use `--markdown true` for basic formatting (but won't preserve @mentions)
+**When updating task descriptions:**
+- The `update-task` command automatically converts markdown to HTML (use `--markdown false` to disable)
+- To preserve full formatting including @mentions, use `--html_notes` with raw HTML
 
 **How to get a task GID:**
 - From Asana URL: `https://app.asana.com/0/PROJECT_ID/TASK_GID` - the last number is the task GID
