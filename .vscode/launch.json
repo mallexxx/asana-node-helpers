@@ -1,0 +1,54 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Find Projects by Name",
+            "program": "${workspaceFolder}/index.js",
+            "args": ["projects", "--name", "${input:projectName}"]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Find Projects (Table)",
+            "program": "${workspaceFolder}/index.js",
+            "args": ["projects", "--name", "${input:projectName}", "--format", "table"]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Find Active Projects",
+            "program": "${workspaceFolder}/index.js",
+            "args": ["projects", "--archived", "false", "--format", "table"]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Fetch My Tasks",
+            "program": "${workspaceFolder}/index.js",
+            "args": ["tasks"]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Fetch Completed Tasks",
+            "program": "${workspaceFolder}/index.js",
+            "args": ["completed"]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Show User Info",
+            "program": "${workspaceFolder}/index.js",
+            "args": ["user"]
+        }
+    ],
+    "inputs": [
+        {
+            "id": "projectName",
+            "type": "promptString",
+            "description": "Enter project name to search for"
+        }
+    ]
+}

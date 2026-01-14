@@ -1,0 +1,33 @@
+{
+  "name": "asana-node-helpers",
+  "version": "1.0.0",
+  "description": "Command-line tools for working with the Asana API using the official node-asana library",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "keywords": [
+    "asana",
+    "api",
+    "cli",
+    "task-management",
+    "productivity"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:mallexxx/asana-node-helpers.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mallexxx/asana-node-helpers/issues"
+  },
+  "homepage": "https://github.com/mallexxx/asana-node-helpers#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "asana": "^3.1.5"
+  }
+}
