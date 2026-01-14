@@ -251,6 +251,80 @@ if (require.main === module) {
                     displaySearchedTasks(foundTasks, taskDisplayOptions);
                     break;
                 
+                case 'create-task':
+                    const createArgs = process.argv.slice(3);
+                    const taskData = {};
+                    let createConvertMarkdown = true; // Default to true - convert markdown automatically
+                    
+                    // Parse task creation arguments
+                    for (let i = 0; i < createArgs.length; i++) {
+                        if (createArgs[i].startsWith('--')) {
+                            const flag = createArgs[i].substring(2);
+                            const value = createArgs[i + 1];
+                            
+                            // Special handling for markdown conversion flag
+                            if (flag === 'markdown') {
+                                createConvertMarkdown = value === 'true' || value === undefined;
+                                i++;
+                                continue;
+                            }
+                            
+                            // Convert boolean strings
+                            if (value === 'true') {
+                                taskData[flag] = true;
+                            } else if (value === 'false') {
+                                taskData[flag] = false;
+                            } else if (value === 'null') {
+                                taskData[flag] = null;
+                            } else {
+                                taskData[flag] = value;
+                            }
+                            i++;
+                        }
+                    }
+                    
+                    // Validate required fields
+                    if (!taskData.name) {
+                        console.log('Please provide at least a task name');
+                        console.log('Usage: node index.js create-task --name "Task Name" [--notes "Description"] [--projects <project_gid>] [--due_on YYYY-MM-DD] [--assignee <user_gid>]');
+                        console.log('\nRequired:');
+                        console.log('  --name          Task name');
+                        console.log('\nOptional:');
+                        console.log('  --notes         Task description (markdown supported by default)');
+                        console.log('  --html_notes    Task description in HTML');
+                        console.log('  --projects      Project GID (comma-separated for multiple)');
+                        console.log('  --assignee      User GID (use "me" for yourself)');
+                        console.log('  --due_on        Due date (YYYY-MM-DD)');
+                        console.log('  --due_at        Due datetime (ISO 8601)');
+                        console.log('  --start_on      Start date (YYYY-MM-DD)');
+                        console.log('  --completed     Completion status (true/false)');
+                        console.log('  --markdown      Enable/disable markdown conversion (default: true)');
+                        process.exit(1);
+                    }
+                    
+                    // Handle markdown conversion for notes
+                    if (taskData.notes && createConvertMarkdown && /[*_#\[\]`]/.test(taskData.notes)) {
+                        const { prepareTaskUpdates } = require('./lib/markdown');
+                        const processed = prepareTaskUpdates({ notes: taskData.notes });
+                        if (processed.html_notes) {
+                            taskData.html_notes = processed.html_notes;
+                            delete taskData.notes;
+                        }
+                    }
+                    
+                    // Handle project list
+                    if (taskData.projects && typeof taskData.projects === 'string') {
+                        taskData.projects = taskData.projects.split(',').map(p => p.trim());
+                    }
+                    
+                    console.log('Creating task:', taskData);
+                    const newTask = await createTask(tasksApiInstance, taskData);
+                    console.log(`✅ Task created successfully!`);
+                    console.log(`Name: ${newTask.name}`);
+                    console.log(`GID: ${newTask.gid}`);
+                    console.log(`URL: https://app.asana.com/0/0/${newTask.gid}`);
+                    break;
+                
                 case 'update-task':
                     const taskGid = process.argv[3];
                     if (!taskGid) {

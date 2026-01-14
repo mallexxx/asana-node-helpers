@@ -330,6 +330,57 @@ node index.js search-tasks --text "bug" --is_blocked true --format table
 node index.js search-tasks --projects.any 1234567890 --fields name,due_on,assignee.name --format table
 ```
 
+#### Create Task
+
+Create a new task in Asana:
+
+```bash
+node index.js create-task --name "Task Name" [options]
+```
+
+**Required:**
+- `--name <text>` - Task name
+
+**Optional:**
+- `--notes <text>` - Task description (markdown supported by default)
+- `--html_notes <html>` - Task description in HTML
+- `--projects <gid>` - Project GID (comma-separated for multiple: `123,456,789`)
+- `--assignee <gid>` - User GID (use `me` for yourself)
+- `--due_on <date>` - Due date (YYYY-MM-DD)
+- `--due_at <datetime>` - Due datetime (ISO 8601)
+- `--start_on <date>` - Start date (YYYY-MM-DD)
+- `--completed <true|false>` - Completion status
+- `--markdown <false>` - Disable markdown conversion (default: true)
+
+**Examples:**
+
+```bash
+# Create a simple task assigned to yourself
+node index.js create-task --name "Review PR" --assignee me
+
+# Create a task with markdown description in a project
+node index.js create-task \
+  --name "Feature: Add dark mode" \
+  --notes "**Requirements:**
+- Toggle button in settings
+- Save preference to localStorage
+- Apply theme on load" \
+  --projects 1234567890 \
+  --assignee me \
+  --due_on 2026-02-28
+
+# Create a task in multiple projects
+node index.js create-task \
+  --name "Update documentation" \
+  --projects "1234567890,9876543210" \
+  --assignee me
+```
+
+**Markdown Formatting:**
+- Markdown in `--notes` is automatically converted to formatted HTML by default
+- Lists, **bold**, *italic*, `code`, and links are all supported
+- Use `--markdown false` to store plain text without conversion
+
 #### Update Task
 
 ```bash
