@@ -88,6 +88,14 @@ node index.js completed
 node index.js search-tasks [options]
 ```
 
+**Quick Reference:**
+- Use `--assignee.any me` to search YOUR tasks
+- Use `--completed false` for incomplete tasks
+- Use `--completed true` for completed tasks
+- Use `--due_on.before YYYY-MM-DD` for tasks due before a date (overdue if date is today)
+- Use `--due_on.after YYYY-MM-DD` for tasks due after a date
+- Use `--sort_by due_date --sort_ascending true` to sort by due date (oldest first)
+
 **Search Options:**
 
 Projects:
@@ -176,7 +184,43 @@ Display options:
 
 Available fields: `name`, `gid`, `completed`, `assignee.name`, `due_on`, `due_at`, `start_on`, `notes`, `projects.name`, `tags.name`, `created_at`, `modified_at`
 
-**Examples:**
+**Note on Date Format:**
+- Dates must be in ISO 8601 format: `YYYY-MM-DD` (e.g., `2026-01-31`)
+- Datetimes must be in full ISO 8601 format (e.g., `2026-01-31T12:00:00Z`)
+- For "today" or dynamic dates, you can use shell commands like `$(date +%Y-%m-%d)` on macOS/Linux
+
+**Common Use Cases:**
+
+```bash
+# My incomplete tasks
+node index.js search-tasks --assignee.any me --completed false
+
+# My incomplete tasks sorted by due date (ascending)
+node index.js search-tasks --assignee.any me --completed false --sort_by due_date --sort_ascending true
+
+# My completed tasks
+node index.js search-tasks --assignee.any me --completed true
+
+# My overdue/outdated tasks (due date in the past)
+# Option 1: Using shell command for today's date
+node index.js search-tasks --assignee.any me --completed false --due_on.before $(date +%Y-%m-%d)
+# Option 2: Using a specific date (e.g., checking tasks overdue as of 2026-01-15)
+node index.js search-tasks --assignee.any me --completed false --due_on.before 2026-01-15
+
+# My tasks due this week
+node index.js search-tasks --assignee.any me --due_on.after $(date +%Y-%m-%d) --due_on.before $(date -v+7d +%Y-%m-%d)
+
+# My tasks with specific due date
+node index.js search-tasks --assignee.any me --due_on 2026-01-31
+
+# My tasks due before a specific date
+node index.js search-tasks --assignee.any me --due_on.before 2026-02-01
+
+# My tasks due after a specific date
+node index.js search-tasks --assignee.any me --due_on.after 2026-01-01
+```
+
+**More Examples:**
 
 ```bash
 # Tasks in a specific project
@@ -185,14 +229,11 @@ node index.js search-tasks --projects.any 1234567890
 # Tasks assigned to me in multiple projects (AND logic)
 node index.js search-tasks --projects.all 1234567890,9876543210 --assignee.any me
 
-# Tasks due in 2024
+# Tasks due in a specific year (e.g., 2024)
 node index.js search-tasks --due_on.after 2023-12-31 --due_on.before 2025-01-01
 
-# Search by text
+# Search by text with table format
 node index.js search-tasks --text "bug" --is_blocked true --format table
-
-# Tasks assigned to me, incomplete, sorted by due date
-node index.js search-tasks --assignee.any me --completed false --sort_by due_date
 
 # Custom fields output
 node index.js search-tasks --projects.any 1234567890 --fields name,due_on,assignee.name --format table
