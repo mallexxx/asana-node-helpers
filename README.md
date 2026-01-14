@@ -317,11 +317,21 @@ node index.js update-task <task_gid> [options]
 
 Any task field can be updated:
 - `--name <text>` - Update task name
-- `--notes <text>` - Update task notes
+- `--notes <text>` - Update task notes/description
+- `--html_notes <html>` - Update task notes with HTML formatting
+- `--markdown <true|false>` - Auto-convert markdown to HTML (default: false)
 - `--due_on <date>` - Update due date (ISO 8601: YYYY-MM-DD)
 - `--start_on <date>` - Update start date
 - `--completed <true|false>` - Mark complete/incomplete
 - `--assignee <gid>` - Change assignee
+
+**Important: Preserving Formatting**
+
+⚠️ **Critical:** When updating task descriptions, use `--html_notes` or `--markdown true` to preserve formatting!
+
+- Using `--notes` will **strip all formatting** (bold, italic, lists, etc.)
+- Using `--html_notes` preserves formatting with HTML
+- Using `--markdown true` auto-converts markdown to HTML
 
 **Examples:**
 
@@ -334,7 +344,34 @@ node index.js update-task 1234567890 --completed true
 
 # Update start and due dates
 node index.js update-task 1234567890 --start_on 2024-03-01 --due_on 2024-03-15
+
+# Update description with markdown (auto-converts to HTML)
+node index.js update-task 1234567890 --notes "**Bold text**
+- List item 1
+- List item 2" --markdown true
+
+# Update description with HTML directly
+node index.js update-task 1234567890 --html_notes "<body><strong>Bold</strong><br><ul><li>Item 1</li></ul></body>"
+
+# Plain text update (loses all formatting)
+node index.js update-task 1234567890 --notes "Plain text description"
 ```
+
+**Markdown to HTML Conversion:**
+
+When using `--markdown true`, these markdown formats are converted:
+- `**bold**` or `__bold__` → `<strong>bold</strong>`
+- `*italic*` or `_italic_` → `<em>italic</em>`
+- `# Heading` → `<h1>Heading</h1>`
+- `- List item` → Simple line breaks (Asana has limited list support)
+- `1. Numbered` → Simple line breaks
+- `[Link](url)` → `<a href="url">Link</a>` (basic link)
+- `` `code` `` → `<code>code</code>`
+
+**Limitations:**
+- **Asana @mentions:** User/task @mentions require special HTML attributes (`data-asana-gid`, `data-asana-type="user"`) that markdown can't generate. Use `--html_notes` for these.
+- **Lists:** Converted to simple line breaks (Asana's API doesn't support `<ul>/<li>` tags well)
+- **Regular links work fine:** `[text](url)` creates clickable links in Asana
 
 ### Project Commands
 

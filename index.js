@@ -248,12 +248,20 @@ if (require.main === module) {
                     
                     const updateArgs = process.argv.slice(4);
                     const updates = {};
+                    let convertMarkdown = false;
                     
                     // Parse update arguments
                     for (let i = 0; i < updateArgs.length; i++) {
                         if (updateArgs[i].startsWith('--')) {
                             const flag = updateArgs[i].substring(2);
                             const value = updateArgs[i + 1];
+                            
+                            // Special handling for markdown conversion flag
+                            if (flag === 'markdown') {
+                                convertMarkdown = value !== 'false';
+                                i++;
+                                continue;
+                            }
                             
                             // Convert boolean strings
                             if (value === 'true') {
@@ -275,8 +283,8 @@ if (require.main === module) {
                     }
                     
                     console.log(`Updating task ${taskGid}:`, updates);
-                    const updatedTask = await updateTask(tasksApiInstance, taskGid, updates);
-                    console.log('Task updated successfully!');
+                    const updatedTask = await updateTask(tasksApiInstance, taskGid, updates, { convertMarkdown });
+                    console.log('✅ Task updated successfully!');
                     console.log(`Name: ${updatedTask.name}`);
                     if (updatedTask.start_on) console.log(`Start: ${updatedTask.start_on}`);
                     if (updatedTask.due_on) console.log(`Due: ${updatedTask.due_on}`);
