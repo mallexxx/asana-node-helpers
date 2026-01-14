@@ -121,6 +121,18 @@ node index.js task 1234567890
 - Number of comments
 - Full notes/description
 
+**⚠️ Important Note About Task Descriptions:**
+
+When viewing task details, the description is shown from the `notes` field (plain text). Asana converts HTML to plain text which means:
+- Bold text appears as `**text**` (markdown-style)
+- Links lose their display text and show only URLs
+- User @mentions become profile URLs
+
+**To preserve full formatting when copying/editing descriptions:**
+1. The `html_notes` field contains the original HTML with all formatting
+2. Use `--html_notes` when updating to preserve @mentions and link text
+3. Or use `--markdown true` for basic formatting (but won't preserve @mentions)
+
 **How to get a task GID:**
 - From Asana URL: `https://app.asana.com/0/PROJECT_ID/TASK_GID` - the last number is the task GID
 - From search results when using `--fields gid`
@@ -317,21 +329,54 @@ node index.js update-task <task_gid> [options]
 
 Any task field can be updated:
 - `--name <text>` - Update task name
-- `--notes <text>` - Update task notes/description
+- `--notes <text>` - Update task notes/description (markdown converted by default)
 - `--html_notes <html>` - Update task notes with HTML formatting
-- `--markdown <true|false>` - Auto-convert markdown to HTML (default: false)
+- `--markdown <false>` - Disable markdown conversion (stores plain text with visible ** symbols)
 - `--due_on <date>` - Update due date (ISO 8601: YYYY-MM-DD)
 - `--start_on <date>` - Update start date
 - `--completed <true|false>` - Mark complete/incomplete
 - `--assignee <gid>` - Change assignee
 
-**Important: Preserving Formatting**
+**Formatting Behavior:**
 
-⚠️ **Critical:** When updating task descriptions, use `--html_notes` or `--markdown true` to preserve formatting!
+By default, markdown in `--notes` is **automatically converted** to formatted HTML:
 
-- Using `--notes` will **strip all formatting** (bold, italic, lists, etc.)
-- Using `--html_notes` preserves formatting with HTML
-- Using `--markdown true` auto-converts markdown to HTML
+```bash
+# Default behavior - markdown is converted automatically ✅
+node index.js update-task 123 --notes "**Bold** text and [link](url)"
+# Result: Bold text with clickable link in Asana
+```
+
+**To disable markdown conversion** (store plain text with literal ** symbols):
+
+```bash
+# Use --markdown false to disable conversion
+node index.js update-task 123 --notes "Literal **asterisks** shown" --markdown false
+# Result: The ** symbols will be visible as plain text
+```
+
+**Formatting Options:**
+
+- `--notes` (default) = **Markdown automatically converted** to formatted HTML
+- `--notes` + `--markdown false` = Plain text only, markdown symbols stored literally
+- `--html_notes` = Use HTML directly (required for @mentions and task references)
+
+**When copying/editing existing task descriptions:**
+
+If a task already has formatting (bold, links, @mentions), you MUST use `--html_notes` to preserve it:
+
+1. **Get the HTML version via API:**
+   ```bash
+   # Fetch html_notes field directly (not shown in task command output)
+   # Use the Asana API or check the task in Asana's web interface
+   ```
+
+2. **Don't copy from `task` command output** - it shows plain text which loses:
+   - Link display text (shows only URLs)
+   - User @mention metadata
+   - Special Asana formatting
+
+3. **Use `--markdown true` only for NEW content** - it creates basic links but won't preserve Asana @mentions
 
 **Examples:**
 
@@ -345,33 +390,43 @@ node index.js update-task 1234567890 --completed true
 # Update start and due dates
 node index.js update-task 1234567890 --start_on 2024-03-01 --due_on 2024-03-15
 
-# Update description with markdown (auto-converts to HTML)
-node index.js update-task 1234567890 --notes "**Bold text**
+# Update description with markdown (converted automatically by default)
+node index.js update-task 1234567890 --notes "**Bold text** and [link](https://example.com)
 - List item 1
-- List item 2" --markdown true
+- List item 2"
 
-# Update description with HTML directly
+# Plain text update with literal ** symbols (disable markdown conversion)
+node index.js update-task 1234567890 --notes "Plain text with **literal asterisks**" --markdown false
+
+# Update description with HTML directly (for @mentions)
 node index.js update-task 1234567890 --html_notes "<body><strong>Bold</strong><br><ul><li>Item 1</li></ul></body>"
-
-# Plain text update (loses all formatting)
-node index.js update-task 1234567890 --notes "Plain text description"
 ```
 
-**Markdown to HTML Conversion:**
+**Markdown Conversion (Automatic by Default):**
 
-When using `--markdown true`, these markdown formats are converted:
-- `**bold**` or `__bold__` → `<strong>bold</strong>`
-- `*italic*` or `_italic_` → `<em>italic</em>`
-- `# Heading` → `<h1>Heading</h1>`
-- `- List item` → Simple line breaks (Asana has limited list support)
-- `1. Numbered` → Simple line breaks
-- `[Link](url)` → `<a href="url">Link</a>` (basic link)
-- `` `code` `` → `<code>code</code>`
+When using `--notes`, markdown is automatically converted to formatted HTML:
+- `**bold**` or `__bold__` → Bold text in Asana
+- `*italic*` or `_italic_` → Italic text in Asana
+- `[Link text](url)` → Clickable link in Asana
+- `# Heading` → Heading formatting
+- `- List item` → Line breaks (Asana has limited list support)
+- `` `code` `` → Code formatting
 
-**Limitations:**
-- **Asana @mentions:** User/task @mentions require special HTML attributes (`data-asana-gid`, `data-asana-type="user"`) that markdown can't generate. Use `--html_notes` for these.
-- **Lists:** Converted to simple line breaks (Asana's API doesn't support `<ul>/<li>` tags well)
-- **Regular links work fine:** `[text](url)` creates clickable links in Asana
+**When to use each option:**
+
+1. **`--notes` (default)** - Use for normal text with markdown formatting
+   - ✅ Bold, italic, links work great
+   - ✅ Simple and intuitive
+   - ❌ Can't create @mentions (need HTML for that)
+
+2. **`--notes` + `--markdown false`** - Use for literal text with ** symbols
+   - ✅ Stores text exactly as written
+   - ❌ No formatting - ** and [] visible as plain text
+
+3. **`--html_notes`** - Use for advanced Asana features
+   - ✅ @mentions with profile pictures
+   - ✅ Task references with special attributes
+   - ❌ More complex to write
 
 ### Project Commands
 

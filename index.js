@@ -248,7 +248,7 @@ if (require.main === module) {
                     
                     const updateArgs = process.argv.slice(4);
                     const updates = {};
-                    let convertMarkdown = false;
+                    let convertMarkdown = true; // Default to true - convert markdown automatically
                     
                     // Parse update arguments
                     for (let i = 0; i < updateArgs.length; i++) {
@@ -258,7 +258,7 @@ if (require.main === module) {
                             
                             // Special handling for markdown conversion flag
                             if (flag === 'markdown') {
-                                convertMarkdown = value !== 'false';
+                                convertMarkdown = value === 'true' || value === undefined;
                                 i++;
                                 continue;
                             }
@@ -280,6 +280,13 @@ if (require.main === module) {
                     if (Object.keys(updates).length === 0) {
                         console.log('Please provide fields to update (e.g., --name "New Name" --due_on 2024-12-31)');
                         process.exit(1);
+                    }
+                    
+                    // Warn if markdown syntax detected but markdown conversion disabled
+                    if (updates.notes && !convertMarkdown && /[*_#\[\]`]/.test(updates.notes)) {
+                        console.log('\n⚠️  WARNING: Detected markdown-like syntax but --markdown false was specified!');
+                        console.log('   Your text will be stored as plain text with ** and other markdown symbols visible.');
+                        console.log('   Remove --markdown false to enable automatic markdown conversion.\n');
                     }
                     
                     console.log(`Updating task ${taskGid}:`, updates);
