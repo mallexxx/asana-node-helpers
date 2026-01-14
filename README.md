@@ -92,6 +92,64 @@ node index.js tasks
 node index.js completed
 ```
 
+#### Get Task Details
+
+Get detailed information about a specific task by its GID:
+
+```bash
+node index.js task <task_gid>
+```
+
+**Example:**
+
+```bash
+# Get details of task with GID 1234567890
+node index.js task 1234567890
+```
+
+**Output includes:**
+- Task name and GID
+- Completion status
+- Assignee
+- Start date (if set)
+- Due date
+- Parent task (if this is a subtask)
+- Projects (with names and GIDs)
+- Tags (with names and GIDs)
+- Subtasks (with names, GIDs, and completion status)
+- Number of likes/hearts
+- Number of comments
+- Full notes/description
+
+**How to get a task GID:**
+- From Asana URL: `https://app.asana.com/0/PROJECT_ID/TASK_GID` - the last number is the task GID
+- From search results when using `--fields gid`
+- From the "tasks" or "completed" commands output
+
+#### Get Task Comments/Discussion
+
+Get all comments and discussion for a specific task:
+
+```bash
+node index.js task-comments <task_gid>
+```
+
+**Example:**
+
+```bash
+# Get all comments for task with GID 1234567890
+node index.js task-comments 1234567890
+```
+
+**Output includes:**
+- Comment count
+- Each comment with:
+  - Author name and GID
+  - Timestamp
+  - Comment text
+
+**Note:** The comment count is also displayed when using the `task <gid>` command.
+
 #### Search Tasks
 
 ```bash

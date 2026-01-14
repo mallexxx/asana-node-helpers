@@ -8,7 +8,7 @@
 // Import feature modules
 const { initializeClient } = require('./lib/client');
 const { getCurrentUser, getUser } = require('./lib/users');
-const { getTasksForUser, getTask, createTask, updateTask, searchTasks, displaySearchedTasks } = require('./lib/tasks');
+const { getTasksForUser, getTask, getTaskStories, createTask, updateTask, searchTasks, displaySearchedTasks } = require('./lib/tasks');
 const { displayTasks, displayTaskDetails, displayUserInfo } = require('./lib/display');
 const { searchProjects, displayProjects, clearCache } = require('./lib/projects');
 
@@ -18,7 +18,8 @@ const {
     tasksApiInstance,
     usersApiInstance,
     projectsApiInstance,
-    workspacesApiInstance
+    workspacesApiInstance,
+    storiesApiInstance
 } = initializeClient();
 
 // Export everything for use in other modules
@@ -37,6 +38,7 @@ module.exports = {
     // Task functions
     getTasksForUser: (userGid, workspace, options) => getTasksForUser(tasksApiInstance, userGid, workspace, options),
     getTask: (taskGid, options) => getTask(tasksApiInstance, taskGid, options),
+    getTaskStories: (taskGid, options) => getTaskStories(storiesApiInstance, taskGid, options),
     createTask: (taskData) => createTask(tasksApiInstance, taskData),
     updateTask: (taskGid, updates) => updateTask(tasksApiInstance, taskGid, updates),
     searchTasks: (searchOptions) => searchTasks(tasksApiInstance, searchOptions),
@@ -62,6 +64,8 @@ if (require.main === module) {
         console.log('Commands:');
         console.log('  tasks                          - Fetch your incomplete tasks');
         console.log('  completed                      - Fetch your completed tasks');
+        console.log('  task <gid>                     - Get details of a specific task');
+        console.log('  task-comments <gid>            - Get comments/discussion for a task');
         console.log('  user                           - Show current user info');
         console.log('  projects [options]             - Search projects');
         console.log('  search-tasks [options]         - Search tasks with filters');
@@ -113,6 +117,41 @@ if (require.main === module) {
                     if (user.workspaces && user.workspaces.length > 0) {
                         const tasks = await getTasksForUser(tasksApiInstance, 'me', user.workspaces[0].gid, { completed: true, limit: 20 });
                         displayTasks(tasks);
+                    }
+                    break;
+                
+                case 'task':
+                    const taskGidToFetch = process.argv[3];
+                    if (!taskGidToFetch) {
+                        console.log('Please provide a task GID');
+                        console.log('Usage: node index.js task <task_gid>');
+                        process.exit(1);
+                    }
+                    const taskDetails = await getTask(tasksApiInstance, taskGidToFetch);
+                    // Fetch comment count
+                    const taskStories = await getTaskStories(storiesApiInstance, taskGidToFetch, { commentsOnly: true });
+                    taskDetails.commentCount = taskStories.length;
+                    displayTaskDetails(taskDetails);
+                    break;
+                
+                case 'task-comments':
+                    const taskGidForComments = process.argv[3];
+                    if (!taskGidForComments) {
+                        console.log('Please provide a task GID');
+                        console.log('Usage: node index.js task-comments <task_gid>');
+                        process.exit(1);
+                    }
+                    const stories = await getTaskStories(storiesApiInstance, taskGidForComments, { commentsOnly: true });
+                    console.log(`\n💬 Comments (${stories.length}):\n`);
+                    if (stories.length === 0) {
+                        console.log('No comments found.');
+                    } else {
+                        stories.forEach((story, index) => {
+                            const authorName = story.created_by?.name || 'Unknown';
+                            const authorGid = story.created_by?.gid || 'unknown';
+                            console.log(`${index + 1}. ${authorName} (${authorGid}) - ${story.created_at}:`);
+                            console.log(`   ${story.text || '(no text)'}\n`);
+                        });
                     }
                     break;
                 

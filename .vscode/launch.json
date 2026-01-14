@@ -54,6 +54,16 @@
         {
             "type": "node",
             "request": "launch",
+            "name": "Get Task Details",
+            "program": "${workspaceFolder}/index.js",
+            "args": ["task", "${input:taskGid}"],
+            "env": {
+                "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+            }
+        },
+        {
+            "type": "node",
+            "request": "launch",
             "name": "Show User Info",
             "program": "${workspaceFolder}/index.js",
             "args": ["user"],
@@ -67,6 +77,11 @@
             "id": "projectName",
             "type": "promptString",
             "description": "Enter project name to search for"
+        },
+        {
+            "id": "taskGid",
+            "type": "promptString",
+            "description": "Enter task GID"
         }
     ]
 }
