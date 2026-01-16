@@ -109,6 +109,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         assignee: { type: 'string', description: 'User GID or "me"' },
                         projects: { type: 'string', description: 'Comma-separated project GIDs' },
                         workspace: { type: 'string', description: 'Workspace GID for personal tasks' },
+                        parent: { type: 'string', description: 'Parent task GID (creates as subtask)' },
                         due_on: { type: 'string', description: 'Due date (YYYY-MM-DD)' },
                         start_on: { type: 'string', description: 'Start date (YYYY-MM-DD)' }
                     },
@@ -125,6 +126,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         name: { type: 'string', description: 'New task name' },
                         notes: { type: 'string', description: 'New description (markdown supported)' },
                         assignee: { type: 'string', description: 'User GID or "me"' },
+                        parent: { type: 'string', description: 'Parent task GID (move to subtask)' },
                         due_on: { type: 'string', description: 'Due date (YYYY-MM-DD)' },
                         start_on: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
                         completed: { type: 'boolean', description: 'Completion status' }
@@ -242,6 +244,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 if (args.notes) taskData.notes = args.notes;
                 if (args.assignee) taskData.assignee = args.assignee;
                 if (args.projects) taskData.projects = args.projects.split(',').map(p => p.trim());
+                if (args.parent) taskData.parent = args.parent;
                 if (args.due_on) taskData.due_on = args.due_on;
                 if (args.start_on) taskData.start_on = args.start_on;
                 
@@ -262,6 +265,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 if (args.name) updates.name = args.name;
                 if (args.notes) updates.notes = args.notes;
                 if (args.assignee) updates.assignee = args.assignee;
+                if (args.parent) updates.parent = args.parent;
                 if (args.due_on) updates.due_on = args.due_on;
                 if (args.start_on) updates.start_on = args.start_on;
                 if (args.completed !== undefined) updates.completed = args.completed;

@@ -469,6 +469,8 @@ node index.js create-task --name "Task Name" [options]
 - `--notes <text>` - Task description (markdown supported by default)
 - `--html_notes <html>` - Task description in HTML
 - `--projects <gid>` - Project GID (comma-separated for multiple: `123,456,789`)
+- `--workspace <gid>` - Workspace GID (for personal tasks not in any project)
+- `--parent <gid>` - Parent task GID (creates as subtask)
 - `--assignee <gid>` - User GID (use `me` for yourself)
 - `--due_on <date>` - Due date (YYYY-MM-DD)
 - `--due_at <datetime>` - Due datetime (ISO 8601)
@@ -498,6 +500,13 @@ node index.js create-task \
   --name "Update documentation" \
   --projects "1234567890,9876543210" \
   --assignee me
+
+# Create a subtask under an existing task
+node index.js create-task \
+  --name "Write unit tests" \
+  --parent 1234567890 \
+  --assignee me \
+  --due_on 2026-02-15
 ```
 
 **Markdown Formatting:**
@@ -518,6 +527,7 @@ Any task field can be updated:
 - `--notes <text>` - Update task notes/description (markdown converted by default)
 - `--html_notes <html>` - Update task notes with HTML formatting
 - `--markdown <false>` - Disable markdown conversion (stores plain text with visible ** symbols)
+- `--parent <gid>` - Move task to be a subtask of another task
 - `--due_on <date>` - Update due date (ISO 8601: YYYY-MM-DD)
 - `--start_on <date>` - Update start date
 - `--completed <true|false>` - Mark complete/incomplete
@@ -575,6 +585,9 @@ node index.js update-task 1234567890 --completed true
 
 # Update start and due dates
 node index.js update-task 1234567890 --start_on 2024-03-01 --due_on 2024-03-15
+
+# Move task to be a subtask of another task
+node index.js update-task 1234567890 --parent 9876543210
 
 # Update description with markdown (converted automatically by default)
 node index.js update-task 1234567890 --notes "**Bold text** and [link](https://example.com)

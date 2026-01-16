@@ -81,8 +81,8 @@ if (require.main === module) {
             'modified_on', 'modified_on.before', 'modified_on.after', 'modified_at.before', 'modified_at.after',
             'text', 'sort_by', 'sort_ascending'
         ],
-        'create-task': ['name', 'notes', 'html_notes', 'assignee', 'projects', 'workspace', 'due_on', 'due_at', 'start_on', 'completed', 'markdown'],
-        'update-task': ['name', 'notes', 'html_notes', 'assignee', 'projects', 'due_on', 'due_at', 'start_on', 'completed', 'markdown'],
+        'create-task': ['name', 'notes', 'html_notes', 'assignee', 'projects', 'workspace', 'parent', 'due_on', 'due_at', 'start_on', 'completed', 'markdown'],
+        'update-task': ['name', 'notes', 'html_notes', 'assignee', 'projects', 'parent', 'due_on', 'due_at', 'start_on', 'completed', 'markdown'],
         'add-comment': ['text', 'html_text', 'markdown'],
         'task': ['format']
     };
@@ -148,6 +148,7 @@ if (require.main === module) {
         console.log('  --html_notes <html>            - Description in HTML');
         console.log('  --assignee <gid|me>            - Assignee (use "me" for yourself)');
         console.log('  --projects <gid1,gid2>         - Project GIDs (comma-separated)');
+        console.log('  --parent <gid>                 - Parent task GID (creates/moves as subtask)');
         console.log('  --due_on <YYYY-MM-DD>          - Due date');
         console.log('  --start_on <YYYY-MM-DD>        - Start date');
         console.log('  --completed <true|false>       - Completion status');
@@ -441,6 +442,7 @@ if (require.main === module) {
                         console.log('  --assignee <gid|me>     - Assignee');
                         console.log('  --projects <gid1,gid2>  - Project GIDs (comma-separated)');
                         console.log('  --workspace <gid>       - Workspace GID (for personal tasks)');
+                        console.log('  --parent <gid>          - Parent task GID (creates as subtask)');
                         console.log('  --due_on <YYYY-MM-DD>   - Due date');
                         console.log('  --due_at <datetime>     - Due datetime (ISO 8601)');
                         console.log('  --start_on <YYYY-MM-DD> - Start date');
@@ -537,6 +539,7 @@ if (require.main === module) {
                         console.log('  --html_notes <html>     - Update description with HTML');
                         console.log('  --assignee <gid|me>     - Change assignee');
                         console.log('  --projects <gid1,gid2>  - Set project(s)');
+                        console.log('  --parent <gid>          - Move to parent task (make subtask)');
                         console.log('  --due_on <YYYY-MM-DD>   - Set due date');
                         console.log('  --start_on <YYYY-MM-DD> - Set start date');
                         console.log('  --completed <true|false> - Mark complete/incomplete');
@@ -558,6 +561,7 @@ if (require.main === module) {
                         console.log('  --html_notes <html>     - Update description with HTML');
                         console.log('  --assignee <gid|me>     - Change assignee');
                         console.log('  --projects <gid1,gid2>  - Set project(s)');
+                        console.log('  --parent <gid>          - Move to parent task (make subtask)');
                         console.log('  --due_on <YYYY-MM-DD>   - Set due date');
                         console.log('  --start_on <YYYY-MM-DD> - Set start date');
                         console.log('  --completed <true|false> - Mark complete/incomplete');
