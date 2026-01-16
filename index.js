@@ -58,18 +58,69 @@ module.exports = {
 if (require.main === module) {
     const command = process.argv[2];
     
-    if (!command) {
+    // Valid flags for each command
+    const VALID_FLAGS = {
+        'projects': ['name', 'archived', 'format', 'fields'],
+        'search-tasks': [
+            'format', 'fields', 'limit',
+            'projects', 'projects.any', 'projects.not', 'projects.all',
+            'sections', 'sections.any', 'sections.not', 'sections.all',
+            'tags', 'tags.any', 'tags.not', 'tags.all',
+            'assignee', 'assignee.any', 'assignee.not',
+            'teams.any', 'portfolios.any',
+            'followers.any', 'followers.not',
+            'created_by.any', 'created_by.not',
+            'assigned_by.any', 'assigned_by.not',
+            'liked_by.not', 'commented_on_by.not',
+            'completed', 'is_subtask', 'is_blocked', 'is_blocking', 'has_attachment',
+            'due_on', 'due_on.before', 'due_on.after', 'due_at.before', 'due_at.after',
+            'start_on', 'start_on.before', 'start_on.after',
+            'created_on', 'created_on.before', 'created_on.after', 'created_at.before', 'created_at.after',
+            'completed_on', 'completed_on.before', 'completed_on.after', 'completed_at.before', 'completed_at.after',
+            'modified_on', 'modified_on.before', 'modified_on.after', 'modified_at.before', 'modified_at.after',
+            'text', 'sort_by', 'sort_ascending'
+        ],
+        'create-task': ['name', 'notes', 'html_notes', 'assignee', 'projects', 'due_on', 'due_at', 'start_on', 'completed', 'markdown'],
+        'update-task': ['name', 'notes', 'html_notes', 'assignee', 'projects', 'due_on', 'due_at', 'start_on', 'completed', 'markdown'],
+        'task': ['format']
+    };
+    
+    function validateFlags(command, args) {
+        if (!VALID_FLAGS[command]) {
+            return { valid: true, invalidFlags: [] };
+        }
+        
+        const validFlags = VALID_FLAGS[command];
+        const invalidFlags = [];
+        
+        for (let i = 0; i < args.length; i++) {
+            if (args[i].startsWith('--')) {
+                const flag = args[i].substring(2);
+                if (!validFlags.includes(flag)) {
+                    invalidFlags.push(flag);
+                }
+            }
+        }
+        
+        return {
+            valid: invalidFlags.length === 0,
+            invalidFlags
+        };
+    }
+    
+    function showHelp() {
         console.log('\n🚀 Asana Node Helpers\n');
-        console.log('Usage: node index.js <command>\n');
+        console.log('Usage: node index.js <command> [options]\n');
         console.log('Commands:');
-        console.log('  tasks                          - Fetch your incomplete tasks');
-        console.log('  completed                      - Fetch your completed tasks');
-        console.log('  task <gid>                     - Get details of a specific task');
+        console.log('  tasks                          - Fetch YOUR incomplete tasks');
+        console.log('  completed                      - Fetch YOUR last 20 completed tasks');
+        console.log('  task <gid> [--format]          - Get details of a specific task');
         console.log('  task-comments <gid>            - Get comments/discussion for a task');
         console.log('  user                           - Show current user info');
-        console.log('  projects [options]             - Search projects');
-        console.log('  search-tasks [options]         - Search tasks with filters');
-        console.log('  update-task <gid> [options]    - Update a task');
+        console.log('  projects [options]             - Search projects in your workspace');
+        console.log('  search-tasks [options]         - Search tasks with advanced filters');
+        console.log('  create-task --name <name> [options] - Create a new task');
+        console.log('  update-task <gid> [options]    - Update an existing task');
         console.log('  clear-cache                    - Clear projects cache\n');
         console.log('Project search options (use --flag value):');
         console.log('  --name <text>                  - Search by name');
@@ -78,26 +129,39 @@ if (require.main === module) {
         console.log('  --fields <field1,field2,...>   - Fields to display (default: name,gid)\n');
         console.log('Available fields:');
         console.log('  name, gid, archived, owner.name, color, public, due_date, start_on, notes\n');
-        console.log('Examples:');
-        console.log('  node index.js projects --name "My Project"');
-        console.log('  node index.js projects --archived false --format table');
-        console.log('  node index.js projects --name "API" --fields name,gid,owner.name,due_date');
-        console.log('  node index.js projects --format json\n');
         console.log('Task search options (use --flag value):');
         console.log('  Projects: --projects.any, --projects.not, --projects.all');
         console.log('  Sections: --sections.any, --sections.not, --sections.all');
         console.log('  Tags: --tags.any, --tags.not, --tags.all');
-        console.log('  Assignee: --assignee.any, --assignee.not');
+        console.log('  Assignee: --assignee.any, --assignee.not (use "me" for yourself)');
         console.log('  Teams: --teams.any');
         console.log('  Other: --text, --completed, --is_subtask, --is_blocked, --is_blocking');
         console.log('  Dates: --due_on.before, --due_on.after, --created_at.before, etc.');
         console.log('  Sort: --sort_by, --sort_ascending');
         console.log('  Display: --format <list|table|json>, --fields <field1,field2,...>\n');
-        console.log('Full docs: https://developers.asana.com/reference/searchtasksforworkspace\n');
+        console.log('Task create/update options:');
+        console.log('  --name <text>                  - Task name');
+        console.log('  --notes <text>                 - Description (markdown auto-converted)');
+        console.log('  --html_notes <html>            - Description in HTML');
+        console.log('  --assignee <gid|me>            - Assignee (use "me" for yourself)');
+        console.log('  --projects <gid1,gid2>         - Project GIDs (comma-separated)');
+        console.log('  --due_on <YYYY-MM-DD>          - Due date');
+        console.log('  --start_on <YYYY-MM-DD>        - Start date');
+        console.log('  --completed <true|false>       - Completion status');
+        console.log('  --markdown <false>             - Disable markdown conversion\n');
         console.log('Examples:');
-        console.log('  node index.js search-tasks --projects.all 1234567890,9876543210 --assignee.any me');
-        console.log('  node index.js search-tasks --projects.any 1234567890,9876543210 --completed false');
-        console.log('  node index.js search-tasks --text "bug" --is_blocked true --format table\n');
+        console.log('  node index.js tasks');
+        console.log('  node index.js task 1234567890 --format markdown');
+        console.log('  node index.js projects --name "Native Apps"');
+        console.log('  node index.js search-tasks --assignee.any me --completed false');
+        console.log('  node index.js search-tasks --projects.all 123,456 --due_on.before 2026-12-31');
+        console.log('  node index.js create-task --name "Fix bug" --assignee me --projects 123');
+        console.log('  node index.js update-task 1234567890 --notes "Updated **description**"\n');
+        console.log('Full API docs: https://developers.asana.com/reference/searchtasksforworkspace\n');
+    }
+    
+    if (!command) {
+        showHelp();
         process.exit(0);
     }
     
@@ -125,6 +189,17 @@ if (require.main === module) {
                     if (!taskGidToFetch) {
                         console.log('Please provide a task GID');
                         console.log('Usage: node index.js task <task_gid> [--format markdown|html|text]');
+                        process.exit(1);
+                    }
+                    
+                    // Validate flags
+                    const taskCmdValidation = validateFlags('task', process.argv.slice(4));
+                    if (!taskCmdValidation.valid) {
+                        console.error(`\n❌ Invalid flag(s): --${taskCmdValidation.invalidFlags.join(', --')}\n`);
+                        console.log('Valid flags for task command:');
+                        console.log('  --format <markdown|html|text>  - Output format for notes\n');
+                        console.log('Example:');
+                        console.log('  node index.js task 1234567890 --format html\n');
                         process.exit(1);
                     }
                     
@@ -173,6 +248,21 @@ if (require.main === module) {
                 
                 case 'projects':
                     const args = process.argv.slice(3);
+                    
+                    // Validate flags
+                    const projectValidation = validateFlags('projects', args);
+                    if (!projectValidation.valid) {
+                        console.error(`\n❌ Invalid flag(s): --${projectValidation.invalidFlags.join(', --')}\n`);
+                        console.log('Valid flags for projects command:');
+                        console.log('  --name <text>                  - Search by name');
+                        console.log('  --archived <true|false>        - Filter by archived status');
+                        console.log('  --format <list|table|json|inline> - Output format');
+                        console.log('  --fields <field1,field2,...>   - Fields to display\n');
+                        console.log('Example:');
+                        console.log('  node index.js projects --name "Native Apps" --format table\n');
+                        process.exit(1);
+                    }
+                    
                     const searchOptions = {};
                     const displayOptions = {};
                     
@@ -208,6 +298,27 @@ if (require.main === module) {
                 
                 case 'search-tasks':
                     const taskArgs = process.argv.slice(3);
+                    
+                    // Validate flags
+                    const taskValidation = validateFlags('search-tasks', taskArgs);
+                    if (!taskValidation.valid) {
+                        console.error(`\n❌ Invalid flag(s): --${taskValidation.invalidFlags.join(', --')}\n`);
+                        console.log('Valid search-tasks flags include:');
+                        console.log('  Projects: --projects.any, --projects.not, --projects.all');
+                        console.log('  Sections: --sections.any, --sections.not, --sections.all');
+                        console.log('  Tags: --tags.any, --tags.not, --tags.all');
+                        console.log('  Assignee: --assignee.any, --assignee.not');
+                        console.log('  Boolean: --completed, --is_subtask, --is_blocked, --is_blocking, --has_attachment');
+                        console.log('  Dates: --due_on, --due_on.before, --due_on.after, --created_at.before, etc.');
+                        console.log('  Other: --text, --sort_by, --sort_ascending');
+                        console.log('  Display: --format, --fields\n');
+                        console.log('Examples:');
+                        console.log('  node index.js search-tasks --assignee.any me --completed false');
+                        console.log('  node index.js search-tasks --projects.all 123,456 --due_on.before 2026-12-31\n');
+                        console.log('Full docs: https://developers.asana.com/reference/searchtasksforworkspace\n');
+                        process.exit(1);
+                    }
+                    
                     const taskSearchOptions = {
                         workspace: user.workspaces && user.workspaces.length > 0 ? user.workspaces[0].gid : null
                     };
@@ -253,6 +364,27 @@ if (require.main === module) {
                 
                 case 'create-task':
                     const createArgs = process.argv.slice(3);
+                    
+                    // Validate flags
+                    const createValidation = validateFlags('create-task', createArgs);
+                    if (!createValidation.valid) {
+                        console.error(`\n❌ Invalid flag(s): --${createValidation.invalidFlags.join(', --')}\n`);
+                        console.log('Valid flags for create-task command:');
+                        console.log('  --name <text>           - Task name (required)');
+                        console.log('  --notes <text>          - Description (markdown auto-converted)');
+                        console.log('  --html_notes <html>     - Description in HTML');
+                        console.log('  --assignee <gid|me>     - Assignee');
+                        console.log('  --projects <gid1,gid2>  - Project GIDs (comma-separated)');
+                        console.log('  --due_on <YYYY-MM-DD>   - Due date');
+                        console.log('  --due_at <datetime>     - Due datetime (ISO 8601)');
+                        console.log('  --start_on <YYYY-MM-DD> - Start date');
+                        console.log('  --completed <true|false> - Completion status');
+                        console.log('  --markdown <false>      - Disable markdown conversion\n');
+                        console.log('Example:');
+                        console.log('  node index.js create-task --name "Fix bug" --assignee me --projects 123\n');
+                        process.exit(1);
+                    }
+                    
                     const taskData = {};
                     let createConvertMarkdown = true; // Default to true - convert markdown automatically
                     
@@ -329,10 +461,43 @@ if (require.main === module) {
                     const taskGid = process.argv[3];
                     if (!taskGid) {
                         console.log('Please provide a task GID to update');
+                        console.log('Usage: node index.js update-task <task_gid> [options]');
+                        console.log('\nOptions:');
+                        console.log('  --name <text>           - Update task name');
+                        console.log('  --notes <text>          - Update description (markdown auto-converted)');
+                        console.log('  --html_notes <html>     - Update description with HTML');
+                        console.log('  --assignee <gid|me>     - Change assignee');
+                        console.log('  --projects <gid1,gid2>  - Set project(s)');
+                        console.log('  --due_on <YYYY-MM-DD>   - Set due date');
+                        console.log('  --start_on <YYYY-MM-DD> - Set start date');
+                        console.log('  --completed <true|false> - Mark complete/incomplete');
+                        console.log('  --markdown <false>      - Disable markdown conversion');
+                        console.log('\nExample:');
+                        console.log('  node index.js update-task 1234567890 --notes "Updated **description**"');
                         process.exit(1);
                     }
                     
                     const updateArgs = process.argv.slice(4);
+                    
+                    // Validate flags
+                    const updateValidation = validateFlags('update-task', updateArgs);
+                    if (!updateValidation.valid) {
+                        console.error(`\n❌ Invalid flag(s): --${updateValidation.invalidFlags.join(', --')}\n`);
+                        console.log('Valid flags for update-task command:');
+                        console.log('  --name <text>           - Update task name');
+                        console.log('  --notes <text>          - Update description (markdown auto-converted)');
+                        console.log('  --html_notes <html>     - Update description with HTML');
+                        console.log('  --assignee <gid|me>     - Change assignee');
+                        console.log('  --projects <gid1,gid2>  - Set project(s)');
+                        console.log('  --due_on <YYYY-MM-DD>   - Set due date');
+                        console.log('  --start_on <YYYY-MM-DD> - Set start date');
+                        console.log('  --completed <true|false> - Mark complete/incomplete');
+                        console.log('  --markdown <false>      - Disable markdown conversion\n');
+                        console.log('Example:');
+                        console.log('  node index.js update-task 1234567890 --notes "Updated **description**"\n');
+                        process.exit(1);
+                    }
+                    
                     const updates = {};
                     let convertMarkdown = true; // Default to true - convert markdown automatically
                     
@@ -388,11 +553,39 @@ if (require.main === module) {
                     break;
                 
                 default:
-                    console.error(`Unknown command: ${command}`);
+                    console.error(`\n❌ Unknown command: ${command}\n`);
+                    showHelp();
                     process.exit(1);
             }
         } catch (error) {
             console.error('Error:', error.message);
+            
+            // Check if it's an SSL/TLS certificate error
+            const certErrors = [
+                'unable to verify',
+                'self signed certificate',
+                'certificate',
+                'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+                'SELF_SIGNED_CERT_IN_CHAIN',
+                'CERT_',
+                'ssl',
+                'tls'
+            ];
+            
+            const errorMessage = (error.message || '').toLowerCase();
+            const errorCode = (error.code || '').toUpperCase();
+            const isCertError = certErrors.some(pattern => 
+                errorMessage.includes(pattern.toLowerCase()) || 
+                errorCode.includes(pattern.toUpperCase())
+            );
+            
+            if (isCertError) {
+                console.error('\n💡 This appears to be an SSL certificate error.');
+                console.error('   Try running with NODE_TLS_REJECT_UNAUTHORIZED=0:\n');
+                console.error(`   NODE_TLS_REJECT_UNAUTHORIZED=0 node index.js ${process.argv.slice(2).join(' ')}\n`);
+                console.error('   ⚠️  Note: Only use this in development environments.\n');
+            }
+            
             process.exit(1);
         }
     })();

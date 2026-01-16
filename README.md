@@ -82,15 +82,21 @@ Shows your user information including workspaces.
 
 #### Fetch Your Incomplete Tasks
 
+Fetches all incomplete tasks assigned to YOU in your default workspace:
+
 ```bash
 node index.js tasks
 ```
 
 #### Fetch Your Completed Tasks
 
+Fetches your last 20 completed tasks in your default workspace:
+
 ```bash
 node index.js completed
 ```
+
+**Note:** For more advanced task queries (filtering by project, date, status, etc.), use the `search-tasks` command instead.
 
 #### Get Task Details
 
