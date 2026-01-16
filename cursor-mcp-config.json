@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "asana": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/asana-node-helpers/mcp-server.js"
+      ],
+      "env": {
+        "ASANA_API_KEY": "your_asana_api_key_here",
+        "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+      }
+    }
+  }
+}

@@ -7,9 +7,11 @@ Command-line tools for working with the Asana API using the official [node-asana
 - 🔍 **Search Tasks** - Powerful task search with filters for projects, assignees, dates, tags, and more
 - 📋 **Manage Projects** - Find and list projects with caching for performance
 - ⚡ **Update Tasks** - Batch update tasks programmatically
+- 💬 **Add Comments** - Post comments with markdown formatting
 - 🎨 **Flexible Output** - Display results as list, table, JSON, or inline format
 - 💾 **Smart Caching** - Project data cached for 24 hours to improve performance
 - 🚀 **CLI & Module** - Use as command-line tool or import as a Node.js module
+- 🤖 **MCP Server** - Expose as Model Context Protocol server for AI assistants
 - 🛠️ **VSCode Integration** - Pre-configured debug launch configurations
 
 ## Requirements
@@ -59,6 +61,76 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 node index.js search-tasks --assignee.any me
 ```
 
 ⚠️ **Note:** Disabling certificate verification should only be used in development environments. This makes your connection less secure.
+
+## MCP Server (Model Context Protocol)
+
+This project can be used as an MCP server, making Asana functionality available to AI assistants like Claude Desktop, Cursor agents, and other MCP-compatible clients.
+
+### What is MCP?
+
+Model Context Protocol (MCP) allows AI assistants to access external tools and data sources. With this MCP server, Cursor agents and other AI assistants can:
+- Search and filter tasks with natural language
+- Create and update tasks with markdown formatting
+- Add comments to tasks
+- Search for projects
+- Get task details including subtasks and comments
+
+### Setup for Cursor IDE
+
+1. **Install MCP SDK dependency:**
+
+```bash
+npm install
+```
+
+2. **Configure Cursor MCP Settings:**
+
+Add to your Cursor MCP settings (`.cursor/mcp_settings.json` in your project or global settings):
+
+```json
+{
+  "mcpServers": {
+    "asana": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/asana-node-helpers/mcp-server.js"
+      ],
+      "env": {
+        "ASANA_API_KEY": "your_asana_api_key_here",
+        "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+      }
+    }
+  }
+}
+```
+
+Replace `/absolute/path/to/asana-node-helpers/` with the actual path.
+
+3. **Restart Cursor IDE**
+
+Cursor agents will now have access to Asana tools!
+
+### Available MCP Tools
+
+- `search_tasks` - Search with filters (assignee, projects, dates, completion status, text, tags)
+- `get_task` - Get detailed task information
+- `create_task` - Create new tasks (supports markdown)
+- `update_task` - Update any task field
+- `add_comment` - Add comments (supports markdown)
+- `get_task_comments` - Get all comments for a task
+- `search_projects` - Find projects by name
+- `get_my_tasks` - Quick access to your incomplete tasks
+
+### Example Usage with Cursor Agents
+
+**Natural language queries that work:**
+
+- "Show me my incomplete tasks"
+- "Create a task called 'Review PR' assigned to me with due date next Friday"
+- "Find all tasks in the Native Apps project that are overdue"
+- "Add a comment to task 1234567890 saying 'Fixed in latest commit'"
+- "Update task 1234567890 to mark it complete"
+- "Search for projects with 'Marketing' in the name"
 
 ## CLI Commands
 
