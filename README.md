@@ -77,13 +77,20 @@ Model Context Protocol (MCP) allows AI assistants to access external tools and d
 
 ### Setup for Cursor IDE
 
-1. **Install MCP SDK dependency:**
+1. **Clone this repository:**
+
+```bash
+git clone https://github.com/mallexxx/asana-node-helpers.git
+cd asana-node-helpers
+```
+
+2. **Install dependencies:**
 
 ```bash
 npm install
 ```
 
-2. **Configure Cursor MCP Settings:**
+3. **Configure Cursor MCP Settings:**
 
 Add to your Cursor MCP settings (`.cursor/mcp_settings.json` in your project or global settings):
 
@@ -93,7 +100,7 @@ Add to your Cursor MCP settings (`.cursor/mcp_settings.json` in your project or 
     "asana": {
       "command": "node",
       "args": [
-        "/absolute/path/to/asana-node-helpers/mcp-server.js"
+        "/Users/yourusername/path/to/asana-node-helpers/mcp-server.js"
       ],
       "env": {
         "ASANA_API_KEY": "your_asana_api_key_here",
@@ -104,9 +111,9 @@ Add to your Cursor MCP settings (`.cursor/mcp_settings.json` in your project or 
 }
 ```
 
-Replace `/absolute/path/to/asana-node-helpers/` with the actual path.
+Replace the path with your actual clone location. You can find it by running `pwd` in the cloned directory.
 
-3. **Restart Cursor IDE**
+4. **Restart Cursor IDE**
 
 Cursor agents will now have access to Asana tools!
 
