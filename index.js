@@ -8,7 +8,7 @@
 // Import feature modules
 const { initializeClient } = require('./lib/client');
 const { getCurrentUser, getUser } = require('./lib/users');
-const { getTasksForUser, getTask, getTaskStories, createTask, updateTask, searchTasks, displaySearchedTasks } = require('./lib/tasks');
+const { getTasksForUser, getTask, getTaskStories, addTaskComment, createTask, updateTask, searchTasks, displaySearchedTasks } = require('./lib/tasks');
 const { displayTasks, displayTaskDetails, displayUserInfo } = require('./lib/display');
 const { searchProjects, displayProjects, clearCache } = require('./lib/projects');
 
@@ -39,6 +39,7 @@ module.exports = {
     getTasksForUser: (userGid, workspace, options) => getTasksForUser(tasksApiInstance, userGid, workspace, options),
     getTask: (taskGid, options) => getTask(tasksApiInstance, taskGid, options),
     getTaskStories: (taskGid, options) => getTaskStories(storiesApiInstance, taskGid, options),
+    addTaskComment: (taskGid, commentData, options) => addTaskComment(storiesApiInstance, taskGid, commentData, options),
     createTask: (taskData) => createTask(tasksApiInstance, taskData),
     updateTask: (taskGid, updates) => updateTask(tasksApiInstance, taskGid, updates),
     searchTasks: (searchOptions) => searchTasks(tasksApiInstance, searchOptions),
@@ -80,8 +81,9 @@ if (require.main === module) {
             'modified_on', 'modified_on.before', 'modified_on.after', 'modified_at.before', 'modified_at.after',
             'text', 'sort_by', 'sort_ascending'
         ],
-        'create-task': ['name', 'notes', 'html_notes', 'assignee', 'projects', 'due_on', 'due_at', 'start_on', 'completed', 'markdown'],
+        'create-task': ['name', 'notes', 'html_notes', 'assignee', 'projects', 'workspace', 'due_on', 'due_at', 'start_on', 'completed', 'markdown'],
         'update-task': ['name', 'notes', 'html_notes', 'assignee', 'projects', 'due_on', 'due_at', 'start_on', 'completed', 'markdown'],
+        'add-comment': ['text', 'html_text', 'markdown'],
         'task': ['format']
     };
     
@@ -116,6 +118,7 @@ if (require.main === module) {
         console.log('  completed                      - Fetch YOUR last 20 completed tasks');
         console.log('  task <gid> [--format]          - Get details of a specific task');
         console.log('  task-comments <gid>            - Get comments/discussion for a task');
+        console.log('  add-comment <gid> --text <text> - Add a comment to a task');
         console.log('  user                           - Show current user info');
         console.log('  projects [options]             - Search projects in your workspace');
         console.log('  search-tasks [options]         - Search tasks with advanced filters');
@@ -156,7 +159,8 @@ if (require.main === module) {
         console.log('  node index.js search-tasks --assignee.any me --completed false');
         console.log('  node index.js search-tasks --projects.all 123,456 --due_on.before 2026-12-31');
         console.log('  node index.js create-task --name "Fix bug" --assignee me --projects 123');
-        console.log('  node index.js update-task 1234567890 --notes "Updated **description**"\n');
+        console.log('  node index.js update-task 1234567890 --notes "Updated **description**"');
+        console.log('  node index.js add-comment 1234567890 --text "Great work! 🎉"\n');
         console.log('Full API docs: https://developers.asana.com/reference/searchtasksforworkspace\n');
     }
     
@@ -240,6 +244,67 @@ if (require.main === module) {
                             console.log(`   ${story.text || '(no text)'}\n`);
                         });
                     }
+                    break;
+                
+                case 'add-comment':
+                    const taskGidForComment = process.argv[3];
+                    if (!taskGidForComment) {
+                        console.log('Please provide a task GID');
+                        console.log('Usage: node index.js add-comment <task_gid> --text "Comment text" [--markdown false]');
+                        console.log('\nOptions:');
+                        console.log('  --text <text>        - Comment text (markdown auto-converted by default)');
+                        console.log('  --html_text <html>   - Comment text in HTML');
+                        console.log('  --markdown <false>   - Disable markdown conversion\n');
+                        console.log('Examples:');
+                        console.log('  node index.js add-comment 1234567890 --text "Great work!"');
+                        console.log('  node index.js add-comment 1234567890 --text "**Important:** This needs review"');
+                        process.exit(1);
+                    }
+                    
+                    const commentArgs = process.argv.slice(4);
+                    
+                    // Validate flags
+                    const commentValidation = validateFlags('add-comment', commentArgs);
+                    if (!commentValidation.valid) {
+                        console.error(`\n❌ Invalid flag(s): --${commentValidation.invalidFlags.join(', --')}\n`);
+                        console.log('Valid flags for add-comment command:');
+                        console.log('  --text <text>        - Comment text (markdown auto-converted)');
+                        console.log('  --html_text <html>   - Comment text in HTML');
+                        console.log('  --markdown <false>   - Disable markdown conversion\n');
+                        console.log('Example:');
+                        console.log('  node index.js add-comment 1234567890 --text "Great work!"\n');
+                        process.exit(1);
+                    }
+                    
+                    const commentData = {};
+                    let commentConvertMarkdown = true;
+                    
+                    // Parse comment arguments
+                    for (let i = 0; i < commentArgs.length; i++) {
+                        if (commentArgs[i].startsWith('--')) {
+                            const flag = commentArgs[i].substring(2);
+                            const value = commentArgs[i + 1];
+                            
+                            if (flag === 'markdown') {
+                                commentConvertMarkdown = value === 'true' || value === undefined;
+                                i++;
+                                continue;
+                            }
+                            
+                            commentData[flag] = value;
+                            i++;
+                        }
+                    }
+                    
+                    if (!commentData.text && !commentData.html_text) {
+                        console.log('Please provide comment text using --text or --html_text');
+                        process.exit(1);
+                    }
+                    
+                    console.log(`Adding comment to task ${taskGidForComment}...`);
+                    const newComment = await addTaskComment(storiesApiInstance, taskGidForComment, commentData, { convertMarkdown: commentConvertMarkdown });
+                    console.log('✅ Comment added successfully!');
+                    console.log(`Text: ${newComment.text || '(HTML formatted)'}`);
                     break;
                 
                 case 'user':
@@ -375,13 +440,15 @@ if (require.main === module) {
                         console.log('  --html_notes <html>     - Description in HTML');
                         console.log('  --assignee <gid|me>     - Assignee');
                         console.log('  --projects <gid1,gid2>  - Project GIDs (comma-separated)');
+                        console.log('  --workspace <gid>       - Workspace GID (for personal tasks)');
                         console.log('  --due_on <YYYY-MM-DD>   - Due date');
                         console.log('  --due_at <datetime>     - Due datetime (ISO 8601)');
                         console.log('  --start_on <YYYY-MM-DD> - Start date');
                         console.log('  --completed <true|false> - Completion status');
                         console.log('  --markdown <false>      - Disable markdown conversion\n');
-                        console.log('Example:');
-                        console.log('  node index.js create-task --name "Fix bug" --assignee me --projects 123\n');
+                        console.log('Examples:');
+                        console.log('  node index.js create-task --name "Fix bug" --assignee me --projects 123');
+                        console.log('  node index.js create-task --name "Personal task" --assignee me --workspace 137249556945\n');
                         process.exit(1);
                     }
                     
@@ -418,19 +485,21 @@ if (require.main === module) {
                     // Validate required fields
                     if (!taskData.name) {
                         console.log('Please provide at least a task name');
-                        console.log('Usage: node index.js create-task --name "Task Name" [--notes "Description"] [--projects <project_gid>] [--due_on YYYY-MM-DD] [--assignee <user_gid>]');
+                        console.log('Usage: node index.js create-task --name "Task Name" [options]');
                         console.log('\nRequired:');
                         console.log('  --name          Task name');
                         console.log('\nOptional:');
                         console.log('  --notes         Task description (markdown supported by default)');
                         console.log('  --html_notes    Task description in HTML');
                         console.log('  --projects      Project GID (comma-separated for multiple)');
+                        console.log('  --workspace     Workspace GID (for personal tasks, visible only to you)');
                         console.log('  --assignee      User GID (use "me" for yourself)');
                         console.log('  --due_on        Due date (YYYY-MM-DD)');
                         console.log('  --due_at        Due datetime (ISO 8601)');
                         console.log('  --start_on      Start date (YYYY-MM-DD)');
                         console.log('  --completed     Completion status (true/false)');
                         console.log('  --markdown      Enable/disable markdown conversion (default: true)');
+                        console.log('\nNote: Use --workspace for personal tasks (not in any project), or --projects for shared tasks');
                         process.exit(1);
                     }
                     

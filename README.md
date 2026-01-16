@@ -179,6 +179,45 @@ node index.js task-comments 1234567890
 
 **Note:** The comment count is also displayed when using the `task <gid>` command.
 
+#### Add Comment to Task
+
+Add a comment to a task with markdown support:
+
+```bash
+node index.js add-comment <task_gid> --text "Comment text" [--markdown false]
+```
+
+**Options:**
+- `--text <text>` - Comment text (markdown auto-converted by default)
+- `--html_text <html>` - Comment text in HTML format
+- `--markdown <false>` - Disable automatic markdown conversion
+
+**Examples:**
+
+```bash
+# Add a simple comment
+node index.js add-comment 1234567890 --text "Great work!"
+
+# Add a comment with markdown formatting
+node index.js add-comment 1234567890 --text "**Important:** This needs review by EOD
+
+- Check the tests
+- Verify the documentation
+- Run benchmarks"
+
+# Add plain text comment without markdown conversion
+node index.js add-comment 1234567890 --text "Keep ** symbols visible" --markdown false
+
+# Add comment with HTML (for @mentions)
+node index.js add-comment 1234567890 --html_text '<body><a href="..." data-asana-gid="123" data-asana-type="user">@John</a> can you review?</body>'
+```
+
+**Markdown Formatting:**
+- Markdown in `--text` is automatically converted to formatted HTML by default
+- Supports **bold**, *italic*, `code`, lists, and links
+- Use `--markdown false` to disable conversion and keep markdown symbols visible
+- Use `--html_text` for advanced formatting like @mentions (requires proper HTML with Asana data attributes)
+
 #### Search Tasks
 
 ```bash
