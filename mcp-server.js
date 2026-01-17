@@ -12,6 +12,10 @@ const {
     ListToolsRequestSchema,
 } = require('@modelcontextprotocol/sdk/types.js');
 
+// Import Node.js modules
+const fs = require('fs');
+const path = require('path');
+
 // Import our Asana helpers
 const { initializeClient } = require('./lib/client');
 const { getCurrentUser } = require('./lib/users');
@@ -106,6 +110,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     properties: {
                         name: { type: 'string', description: 'Task name' },
                         notes: { type: 'string', description: 'Task description (markdown supported)' },
+                        notes_file: { type: 'string', description: 'Path to markdown file for task description' },
+                        html_notes_file: { type: 'string', description: 'Path to HTML file for task description' },
                         assignee: { type: 'string', description: 'User GID or "me"' },
                         projects: { type: 'string', description: 'Comma-separated project GIDs' },
                         workspace: { type: 'string', description: 'Workspace GID for personal tasks' },
@@ -125,6 +131,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         task_gid: { type: 'string', description: 'Task GID' },
                         name: { type: 'string', description: 'New task name' },
                         notes: { type: 'string', description: 'New description (markdown supported)' },
+                        notes_file: { type: 'string', description: 'Path to markdown file for task description' },
+                        html_notes_file: { type: 'string', description: 'Path to HTML file for task description' },
                         assignee: { type: 'string', description: 'User GID or "me"' },
                         parent: { type: 'string', description: 'Parent task GID (move to subtask)' },
                         due_on: { type: 'string', description: 'Due date (YYYY-MM-DD)' },
@@ -241,7 +249,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     workspace: args.workspace || currentUser.workspaces[0].gid
                 };
                 
-                if (args.notes) taskData.notes = args.notes;
+                // Handle file input for notes
+                if (args.notes_file) {
+                    try {
+                        taskData.notes = fs.readFileSync(path.resolve(args.notes_file), 'utf8');
+                    } catch (error) {
+                        throw new Error(`Failed to read notes file: ${error.message}`);
+                    }
+                } else if (args.notes) {
+                    taskData.notes = args.notes;
+                }
+                
+                if (args.html_notes_file) {
+                    try {
+                        taskData.html_notes = fs.readFileSync(path.resolve(args.html_notes_file), 'utf8');
+                    } catch (error) {
+                        throw new Error(`Failed to read HTML notes file: ${error.message}`);
+                    }
+                }
+                
                 if (args.assignee) taskData.assignee = args.assignee;
                 if (args.projects) taskData.projects = args.projects.split(',').map(p => p.trim());
                 if (args.parent) taskData.parent = args.parent;
@@ -262,8 +288,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             
             case 'update_task': {
                 const updates = {};
+                
+                // Handle file input for notes
+                if (args.notes_file) {
+                    try {
+                        updates.notes = fs.readFileSync(path.resolve(args.notes_file), 'utf8');
+                    } catch (error) {
+                        throw new Error(`Failed to read notes file: ${error.message}`);
+                    }
+                } else if (args.notes) {
+                    updates.notes = args.notes;
+                }
+                
+                if (args.html_notes_file) {
+                    try {
+                        updates.html_notes = fs.readFileSync(path.resolve(args.html_notes_file), 'utf8');
+                    } catch (error) {
+                        throw new Error(`Failed to read HTML notes file: ${error.message}`);
+                    }
+                }
+                
                 if (args.name) updates.name = args.name;
-                if (args.notes) updates.notes = args.notes;
                 if (args.assignee) updates.assignee = args.assignee;
                 if (args.parent) updates.parent = args.parent;
                 if (args.due_on) updates.due_on = args.due_on;

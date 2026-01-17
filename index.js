@@ -5,6 +5,10 @@
  * Import and export all modules for easy access.
  */
 
+// Import Node.js modules
+const fs = require('fs');
+const path = require('path');
+
 // Import feature modules
 const { initializeClient } = require('./lib/client');
 const { getCurrentUser, getUser } = require('./lib/users');
@@ -81,8 +85,8 @@ if (require.main === module) {
             'modified_on', 'modified_on.before', 'modified_on.after', 'modified_at.before', 'modified_at.after',
             'text', 'sort_by', 'sort_ascending'
         ],
-        'create-task': ['name', 'notes', 'html_notes', 'assignee', 'projects', 'workspace', 'parent', 'due_on', 'due_at', 'start_on', 'completed', 'markdown'],
-        'update-task': ['name', 'notes', 'html_notes', 'assignee', 'projects', 'parent', 'due_on', 'due_at', 'start_on', 'completed', 'markdown'],
+        'create-task': ['name', 'notes', 'notes-file', 'html_notes', 'html_notes-file', 'assignee', 'projects', 'workspace', 'parent', 'due_on', 'due_at', 'start_on', 'completed', 'markdown'],
+        'update-task': ['name', 'notes', 'notes-file', 'html_notes', 'html_notes-file', 'assignee', 'projects', 'parent', 'due_on', 'due_at', 'start_on', 'completed', 'markdown'],
         'add-comment': ['text', 'html_text', 'markdown'],
         'task': ['format']
     };
@@ -145,7 +149,9 @@ if (require.main === module) {
         console.log('Task create/update options:');
         console.log('  --name <text>                  - Task name');
         console.log('  --notes <text>                 - Description (markdown auto-converted)');
+        console.log('  --notes-file <path>            - Read description from markdown file');
         console.log('  --html_notes <html>            - Description in HTML');
+        console.log('  --html_notes-file <path>       - Read description from HTML file');
         console.log('  --assignee <gid|me>            - Assignee (use "me" for yourself)');
         console.log('  --projects <gid1,gid2>         - Project GIDs (comma-separated)');
         console.log('  --parent <gid>                 - Parent task GID (creates/moves as subtask)');
@@ -438,7 +444,9 @@ if (require.main === module) {
                         console.log('Valid flags for create-task command:');
                         console.log('  --name <text>           - Task name (required)');
                         console.log('  --notes <text>          - Description (markdown auto-converted)');
+                        console.log('  --notes-file <path>     - Read description from markdown file');
                         console.log('  --html_notes <html>     - Description in HTML');
+                        console.log('  --html_notes-file <path> - Read description from HTML file');
                         console.log('  --assignee <gid|me>     - Assignee');
                         console.log('  --projects <gid1,gid2>  - Project GIDs (comma-separated)');
                         console.log('  --workspace <gid>       - Workspace GID (for personal tasks)');
@@ -484,6 +492,31 @@ if (require.main === module) {
                         }
                     }
                     
+                    // Handle file input for notes
+                    if (taskData['notes-file']) {
+                        const filePath = path.resolve(taskData['notes-file']);
+                        try {
+                            taskData.notes = fs.readFileSync(filePath, 'utf8');
+                            console.log(`📄 Read notes from: ${filePath}`);
+                            delete taskData['notes-file'];
+                        } catch (error) {
+                            console.error(`❌ Error reading notes file: ${error.message}`);
+                            process.exit(1);
+                        }
+                    }
+                    
+                    if (taskData['html_notes-file']) {
+                        const filePath = path.resolve(taskData['html_notes-file']);
+                        try {
+                            taskData.html_notes = fs.readFileSync(filePath, 'utf8');
+                            console.log(`📄 Read HTML notes from: ${filePath}`);
+                            delete taskData['html_notes-file'];
+                        } catch (error) {
+                            console.error(`❌ Error reading HTML notes file: ${error.message}`);
+                            process.exit(1);
+                        }
+                    }
+                    
                     // Validate required fields
                     if (!taskData.name) {
                         console.log('Please provide at least a task name');
@@ -492,7 +525,9 @@ if (require.main === module) {
                         console.log('  --name          Task name');
                         console.log('\nOptional:');
                         console.log('  --notes         Task description (markdown supported by default)');
+                        console.log('  --notes-file    Path to markdown file for task description');
                         console.log('  --html_notes    Task description in HTML');
+                        console.log('  --html_notes-file Path to HTML file for task description');
                         console.log('  --projects      Project GID (comma-separated for multiple)');
                         console.log('  --workspace     Workspace GID (for personal tasks, visible only to you)');
                         console.log('  --assignee      User GID (use "me" for yourself)');
@@ -558,7 +593,9 @@ if (require.main === module) {
                         console.log('Valid flags for update-task command:');
                         console.log('  --name <text>           - Update task name');
                         console.log('  --notes <text>          - Update description (markdown auto-converted)');
+                        console.log('  --notes-file <path>     - Read description from markdown file');
                         console.log('  --html_notes <html>     - Update description with HTML');
+                        console.log('  --html_notes-file <path> - Read description from HTML file');
                         console.log('  --assignee <gid|me>     - Change assignee');
                         console.log('  --projects <gid1,gid2>  - Set project(s)');
                         console.log('  --parent <gid>          - Move to parent task (make subtask)');
@@ -598,6 +635,31 @@ if (require.main === module) {
                                 updates[flag] = value;
                             }
                             i++;
+                        }
+                    }
+                    
+                    // Handle file input for notes
+                    if (updates['notes-file']) {
+                        const filePath = path.resolve(updates['notes-file']);
+                        try {
+                            updates.notes = fs.readFileSync(filePath, 'utf8');
+                            console.log(`📄 Read notes from: ${filePath}`);
+                            delete updates['notes-file'];
+                        } catch (error) {
+                            console.error(`❌ Error reading notes file: ${error.message}`);
+                            process.exit(1);
+                        }
+                    }
+                    
+                    if (updates['html_notes-file']) {
+                        const filePath = path.resolve(updates['html_notes-file']);
+                        try {
+                            updates.html_notes = fs.readFileSync(filePath, 'utf8');
+                            console.log(`📄 Read HTML notes from: ${filePath}`);
+                            delete updates['html_notes-file'];
+                        } catch (error) {
+                            console.error(`❌ Error reading HTML notes file: ${error.message}`);
+                            process.exit(1);
                         }
                     }
                     

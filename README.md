@@ -467,7 +467,9 @@ node index.js create-task --name "Task Name" [options]
 
 **Optional:**
 - `--notes <text>` - Task description (markdown supported by default)
+- `--notes-file <path>` - Read task description from markdown file
 - `--html_notes <html>` - Task description in HTML
+- `--html_notes-file <path>` - Read task description from HTML file
 - `--projects <gid>` - Project GID (comma-separated for multiple: `123,456,789`)
 - `--workspace <gid>` - Workspace GID (for personal tasks not in any project)
 - `--parent <gid>` - Parent task GID (creates as subtask)
@@ -507,6 +509,13 @@ node index.js create-task \
   --parent 1234567890 \
   --assignee me \
   --due_on 2026-02-15
+
+# Create a task with description from a markdown file
+node index.js create-task \
+  --name "Feature specification" \
+  --notes-file ./docs/feature-spec.md \
+  --assignee me \
+  --projects 1234567890
 ```
 
 **Markdown Formatting:**
@@ -525,7 +534,9 @@ node index.js update-task <task_gid> [options]
 Any task field can be updated:
 - `--name <text>` - Update task name
 - `--notes <text>` - Update task notes/description (markdown converted by default)
+- `--notes-file <path>` - Read description from markdown file
 - `--html_notes <html>` - Update task notes with HTML formatting
+- `--html_notes-file <path>` - Read description from HTML file
 - `--markdown <false>` - Disable markdown conversion (stores plain text with visible ** symbols)
 - `--parent <gid>` - Move task to be a subtask of another task
 - `--due_on <date>` - Update due date (ISO 8601: YYYY-MM-DD)
@@ -588,6 +599,9 @@ node index.js update-task 1234567890 --start_on 2024-03-01 --due_on 2024-03-15
 
 # Move task to be a subtask of another task
 node index.js update-task 1234567890 --parent 9876543210
+
+# Update description from a markdown file
+node index.js update-task 1234567890 --notes-file ./docs/updated-description.md
 
 # Update description with markdown (converted automatically by default)
 node index.js update-task 1234567890 --notes "**Bold text** and [link](https://example.com)
