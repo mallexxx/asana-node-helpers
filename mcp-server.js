@@ -16,6 +16,48 @@ const {
 const fs = require('fs');
 const path = require('path');
 
+// Logging setup
+const LOG_FILE = path.join(__dirname, 'mcp-server.log');
+const LOG_ENABLED = process.env.MCP_LOG !== 'false'; // Enabled by default
+
+function log(level, message, data = null) {
+    if (!LOG_ENABLED) return;
+    
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+        timestamp,
+        level,
+        message,
+        ...(data && { data })
+    };
+    
+    const logLine = JSON.stringify(logEntry) + '\n';
+    
+    try {
+        // Use appendFileSync for immediate writes (important for stdio-based servers)
+        fs.appendFileSync(LOG_FILE, logLine, { encoding: 'utf8', mode: 0o666 });
+    } catch (error) {
+        // If logging fails, write to stderr but don't crash
+        // stderr goes to the MCP client's logs, not stdout which is used for protocol
+        console.error(`[MCP LOG ERROR] Failed to write to ${LOG_FILE}:`, error.message);
+        console.error(`[MCP LOG ERROR] Attempted to log: ${level} - ${message}`);
+    }
+}
+
+// Test log on module load to verify logging works
+if (LOG_ENABLED) {
+    try {
+        log('info', 'MCP server module loaded', { 
+            timestamp: new Date().toISOString(),
+            logFile: LOG_FILE,
+            cwd: process.cwd(),
+            dirname: __dirname
+        });
+    } catch (error) {
+        console.error('[MCP LOG ERROR] Failed to write initial log entry:', error);
+    }
+}
+
 // Import our Asana helpers
 const { initializeClient } = require('./lib/client');
 const { getCurrentUser } = require('./lib/users');
@@ -30,12 +72,45 @@ const {
 } = require('./lib/tasks');
 const { searchProjects } = require('./lib/projects');
 
+// Validation helpers
+function validateDateFormat(dateString, fieldName) {
+    if (!dateString) return true;
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(dateString)) {
+        throw new Error(`Invalid ${fieldName} format. Expected YYYY-MM-DD, got: ${dateString}`);
+    }
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+        throw new Error(`Invalid ${fieldName} date: ${dateString}`);
+    }
+    return true;
+}
+
+function validateRequired(value, fieldName) {
+    if (value === undefined || value === null || value === '') {
+        throw new Error(`Missing required parameter: ${fieldName}`);
+    }
+    return true;
+}
+
+function validateGid(gid, fieldName) {
+    if (!gid) return true; // Allow empty for optional fields
+    if (gid === 'me') return true; // Special case for user GID
+    if (!/^\d+$/.test(gid)) {
+        throw new Error(`Invalid ${fieldName} format. Expected numeric GID, got: ${gid}`);
+    }
+    return true;
+}
+
 // Initialize Asana client
 let client, tasksApiInstance, usersApiInstance, projectsApiInstance, storiesApiInstance;
 let currentUser = null;
 
 async function initializeAsana() {
+    log('info', 'Initializing Asana client');
+    
     if (!process.env.ASANA_API_KEY) {
+        log('error', 'Missing ASANA_API_KEY environment variable');
         throw new Error('ASANA_API_KEY environment variable is required');
     }
     
@@ -48,6 +123,11 @@ async function initializeAsana() {
     
     // Get current user for workspace context
     currentUser = await getCurrentUser(usersApiInstance);
+    
+    log('info', 'Asana client initialized', { 
+        user: currentUser.name, 
+        workspace: currentUser.workspaces?.[0]?.name 
+    });
     
     return {
         user: currentUser,
@@ -70,6 +150,8 @@ const server = new Server(
 
 // List available tools
 server.setRequestHandler(ListToolsRequestSchema, async () => {
+    log('info', 'Tools list requested');
+    
     return {
         tools: [
             {
@@ -104,14 +186,22 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: 'create_task',
-                description: 'Create a new task. Supports markdown formatting in notes. Use workspace parameter for personal tasks or projects parameter for shared tasks.',
+                description: `Create a new task. Supports markdown formatting in notes. Use workspace parameter for personal tasks or projects parameter for shared tasks.
+
+FORMATTING GUIDE:
+- Markdown is automatically converted to Asana HTML
+- Supported: **bold**, *italic*, lists, code blocks, links
+- To link to users: Use full Asana profile URL: https://app.asana.com/0/profile/USER_GID (not @mentions)
+- To link to tasks: Use full Asana task URL: https://app.asana.com/0/PROJECT_GID/TASK_GID
+- To link to projects: Use full Asana project URL: https://app.asana.com/0/PROJECT_GID/list
+- Example: **Owner:** https://app.asana.com/0/profile/1234567890123456`,
                 inputSchema: {
                     type: 'object',
                     properties: {
                         name: { type: 'string', description: 'Task name' },
-                        notes: { type: 'string', description: 'Task description (markdown supported)' },
+                        notes: { type: 'string', description: 'Task description in markdown. See description for formatting guide.' },
                         notes_file: { type: 'string', description: 'Path to markdown file for task description' },
-                        html_notes_file: { type: 'string', description: 'Path to HTML file for task description' },
+                        html_notes_file: { type: 'string', description: 'Path to HTML file for task description (bypasses markdown conversion)' },
                         assignee: { type: 'string', description: 'User GID or "me"' },
                         projects: { type: 'string', description: 'Comma-separated project GIDs' },
                         workspace: { type: 'string', description: 'Workspace GID for personal tasks' },
@@ -124,15 +214,23 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: 'update_task',
-                description: 'Update a task. Supports updating any field including notes (with markdown), assignee, dates, completion status.',
+                description: `Update a task. Supports updating any field including notes (with markdown), assignee, dates, completion status.
+
+FORMATTING GUIDE:
+- Markdown is automatically converted to Asana HTML
+- Supported: **bold**, *italic*, lists, code blocks, links
+- To link to users: Use full Asana profile URL: https://app.asana.com/0/profile/USER_GID (not @mentions)
+- To link to tasks: Use full Asana task URL: https://app.asana.com/0/PROJECT_GID/TASK_GID
+- To link to projects: Use full Asana project URL: https://app.asana.com/0/PROJECT_GID/list
+- Example: **Owner:** https://app.asana.com/0/profile/1234567890123456`,
                 inputSchema: {
                     type: 'object',
                     properties: {
                         task_gid: { type: 'string', description: 'Task GID' },
                         name: { type: 'string', description: 'New task name' },
-                        notes: { type: 'string', description: 'New description (markdown supported)' },
+                        notes: { type: 'string', description: 'New description in markdown. See description for formatting guide.' },
                         notes_file: { type: 'string', description: 'Path to markdown file for task description' },
-                        html_notes_file: { type: 'string', description: 'Path to HTML file for task description' },
+                        html_notes_file: { type: 'string', description: 'Path to HTML file for task description (bypasses markdown conversion)' },
                         assignee: { type: 'string', description: 'User GID or "me"' },
                         parent: { type: 'string', description: 'Parent task GID (move to subtask)' },
                         due_on: { type: 'string', description: 'Due date (YYYY-MM-DD)' },
@@ -144,12 +242,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: 'add_comment',
-                description: 'Add a comment to a task. Supports markdown formatting.',
+                description: `Add a comment to a task. Supports markdown formatting.
+
+FORMATTING GUIDE:
+- Markdown is automatically converted to Asana HTML
+- Supported: **bold**, *italic*, lists, code blocks, links
+- To link to users: Use full Asana profile URL: https://app.asana.com/0/profile/USER_GID (not @mentions)
+- To link to tasks: Use full Asana task URL: https://app.asana.com/0/PROJECT_GID/TASK_GID
+- Example: **Owner:** https://app.asana.com/0/profile/1234567890123456`,
                 inputSchema: {
                     type: 'object',
                     properties: {
                         task_gid: { type: 'string', description: 'Task GID' },
-                        text: { type: 'string', description: 'Comment text (markdown supported)' }
+                        text: { type: 'string', description: 'Comment text in markdown. See description for formatting guide.' }
                     },
                     required: ['task_gid', 'text']
                 }
@@ -190,13 +295,28 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 // Handle tool calls
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const startTime = Date.now();
+    const { name, arguments: args } = request.params;
+    
+    // Log immediately - sanitize args to avoid logging sensitive data
+    const sanitizedArgs = { ...args };
+    if (sanitizedArgs.notes && sanitizedArgs.notes.length > 100) {
+        sanitizedArgs.notes = sanitizedArgs.notes.substring(0, 100) + '...';
+    }
+    if (sanitizedArgs.text && sanitizedArgs.text.length > 100) {
+        sanitizedArgs.text = sanitizedArgs.text.substring(0, 100) + '...';
+    }
+    
+    log('info', `Tool called: ${name}`, { args: sanitizedArgs });
+    
     try {
-        const { name, arguments: args } = request.params;
-        
         // Ensure Asana is initialized
         if (!currentUser) {
+            log('info', 'Initializing Asana client (first call)');
             await initializeAsana();
         }
+        
+        let result;
         
         switch (name) {
             case 'search_tasks': {
@@ -218,7 +338,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 
                 const tasks = await searchTasks(tasksApiInstance, searchOptions);
                 
-                return {
+                result = {
                     content: [
                         {
                             type: 'text',
@@ -226,14 +346,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                         }
                     ]
                 };
+                break;
             }
             
             case 'get_task': {
+                // Validate required parameters
+                validateRequired(args.task_gid, 'task_gid');
+                validateGid(args.task_gid, 'task_gid');
+                
                 const task = await getTask(tasksApiInstance, args.task_gid);
                 const comments = await getTaskStories(storiesApiInstance, args.task_gid, { commentsOnly: true });
                 task.commentCount = comments.length;
                 
-                return {
+                result = {
                     content: [
                         {
                             type: 'text',
@@ -241,9 +366,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                         }
                     ]
                 };
+                break;
             }
             
             case 'create_task': {
+                // Validate required parameters
+                validateRequired(args.name, 'name');
+                
+                // Validate dates
+                validateDateFormat(args.due_on, 'due_on');
+                validateDateFormat(args.start_on, 'start_on');
+                
+                // Validate GIDs
+                validateGid(args.assignee, 'assignee');
+                validateGid(args.parent, 'parent');
+                validateGid(args.workspace, 'workspace');
+                
                 const taskData = {
                     name: args.name,
                     workspace: args.workspace || currentUser.workspaces[0].gid
@@ -269,14 +407,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 }
                 
                 if (args.assignee) taskData.assignee = args.assignee;
-                if (args.projects) taskData.projects = args.projects.split(',').map(p => p.trim());
+                if (args.projects) {
+                    // Validate project GIDs
+                    const projectGids = args.projects.split(',').map(p => p.trim());
+                    projectGids.forEach(gid => validateGid(gid, 'project GID'));
+                    taskData.projects = projectGids;
+                }
                 if (args.parent) taskData.parent = args.parent;
                 if (args.due_on) taskData.due_on = args.due_on;
                 if (args.start_on) taskData.start_on = args.start_on;
                 
                 const task = await createTask(tasksApiInstance, taskData);
                 
-                return {
+                result = {
                     content: [
                         {
                             type: 'text',
@@ -284,9 +427,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                         }
                     ]
                 };
+                break;
             }
             
             case 'update_task': {
+                // Validate required parameters
+                validateRequired(args.task_gid, 'task_gid');
+                validateGid(args.task_gid, 'task_gid');
+                
+                // Validate optional parameters
+                validateDateFormat(args.due_on, 'due_on');
+                validateDateFormat(args.start_on, 'start_on');
+                validateGid(args.assignee, 'assignee');
+                validateGid(args.parent, 'parent');
+                
                 const updates = {};
                 
                 // Handle file input for notes
@@ -317,7 +471,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 
                 const task = await updateTask(tasksApiInstance, args.task_gid, updates, { convertMarkdown: true });
                 
-                return {
+                result = {
                     content: [
                         {
                             type: 'text',
@@ -325,9 +479,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                         }
                     ]
                 };
+                break;
             }
             
             case 'add_comment': {
+                // Validate required parameters
+                validateRequired(args.task_gid, 'task_gid');
+                validateRequired(args.text, 'text');
+                validateGid(args.task_gid, 'task_gid');
+                
                 const comment = await addTaskComment(
                     storiesApiInstance, 
                     args.task_gid, 
@@ -335,7 +495,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     { convertMarkdown: true }
                 );
                 
-                return {
+                result = {
                     content: [
                         {
                             type: 'text',
@@ -343,12 +503,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                         }
                     ]
                 };
+                break;
             }
             
             case 'get_task_comments': {
+                // Validate required parameters
+                validateRequired(args.task_gid, 'task_gid');
+                validateGid(args.task_gid, 'task_gid');
+                
                 const comments = await getTaskStories(storiesApiInstance, args.task_gid, { commentsOnly: true });
                 
-                return {
+                result = {
                     content: [
                         {
                             type: 'text',
@@ -356,6 +521,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                         }
                     ]
                 };
+                break;
             }
             
             case 'search_projects': {
@@ -369,7 +535,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     searchOptions
                 );
                 
-                return {
+                result = {
                     content: [
                         {
                             type: 'text',
@@ -377,6 +543,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                         }
                     ]
                 };
+                break;
             }
             
             case 'get_my_tasks': {
@@ -387,7 +554,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     { completed: false }
                 );
                 
-                return {
+                result = {
                     content: [
                         {
                             type: 'text',
@@ -395,17 +562,53 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                         }
                     ]
                 };
+                break;
             }
             
             default:
+                log('error', `Unknown tool: ${name}`);
                 throw new Error(`Unknown tool: ${name}`);
         }
+        
+        // Log successful completion
+        const duration = Date.now() - startTime;
+        log('info', `Tool completed: ${name}`, { duration: `${duration}ms` });
+        
+        return result;
+        
     } catch (error) {
+        // Log error
+        const duration = Date.now() - startTime;
+        log('error', `Tool failed: ${name}`, { 
+            duration: `${duration}ms`,
+            error: error.message,
+            stack: error.stack
+        });
+        
+        // Extract detailed error information
+        let errorMessage = error.message;
+        
+        // Asana API errors have detailed info in response.body
+        if (error.response?.body) {
+            const body = error.response.body;
+            if (body.errors && body.errors.length > 0) {
+                errorMessage = body.errors.map(e => e.message).join('; ');
+            } else if (body.error) {
+                errorMessage = body.error;
+            }
+        }
+        
+        // Include stack trace in development mode
+        const isDev = process.env.NODE_ENV === 'development';
+        const fullError = isDev && error.stack 
+            ? `${errorMessage}\n\nStack trace:\n${error.stack}`
+            : errorMessage;
+        
         return {
             content: [
                 {
                     type: 'text',
-                    text: `Error: ${error.message}`
+                    text: `Error: ${fullError}`
                 }
             ],
             isError: true
@@ -416,16 +619,49 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 // Start the server
 async function main() {
     try {
+        // Log startup info - do this BEFORE any other initialization
+        const startupInfo = {
+            logFile: LOG_FILE,
+            logEnabled: LOG_ENABLED,
+            cwd: process.cwd(),
+            dirname: __dirname,
+            nodeVersion: process.version,
+            pid: process.pid
+        };
+        
+        log('info', 'Starting Asana MCP Server', startupInfo);
+        
         console.error('Starting Asana MCP Server...');
+        console.error(`  PID: ${process.pid}`);
+        console.error(`  CWD: ${process.cwd()}`);
+        console.error(`  __dirname: ${__dirname}`);
+        if (LOG_ENABLED) {
+            console.error(`  Logging to: ${LOG_FILE}`);
+        } else {
+            console.error(`  Logging disabled (MCP_LOG=${process.env.MCP_LOG})`);
+        }
         
         const transport = new StdioServerTransport();
         await server.connect(transport);
         
+        log('info', 'Asana MCP Server started successfully');
         console.error('Asana MCP Server running on stdio');
     } catch (error) {
+        log('error', 'Failed to start server', { error: error.message, stack: error.stack });
         console.error('Failed to start server:', error);
         process.exit(1);
     }
 }
+
+// Handle graceful shutdown
+process.on('SIGINT', () => {
+    log('info', 'Received SIGINT, shutting down gracefully');
+    process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+    log('info', 'Received SIGTERM, shutting down gracefully');
+    process.exit(0);
+});
 
 main();

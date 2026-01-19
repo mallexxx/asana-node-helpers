@@ -75,6 +75,25 @@ Model Context Protocol (MCP) allows AI assistants to access external tools and d
 - Search for projects
 - Get task details including subtasks and comments
 
+### Logging
+
+The MCP server automatically logs all operations to `mcp-server.log` in the project directory (gitignored). 
+
+**Logged events:**
+- Server start/stop and initialization
+- All tool calls with arguments
+- Tool execution time and results
+- Errors with full stack traces
+- Validation failures
+
+**Log format:** JSON lines for easy parsing
+```json
+{"timestamp":"2026-01-19T12:34:56.789Z","level":"info","message":"Tool called: create_task","data":{"args":{"name":"Test"}}}
+{"timestamp":"2026-01-19T12:34:57.123Z","level":"info","message":"Tool completed: create_task","data":{"duration":"334ms"}}
+```
+
+**Disable logging:** Set `MCP_LOG=false` in your MCP config environment variables.
+
 ### Setup for Cursor IDE
 
 1. **Clone this repository:**
@@ -104,14 +123,22 @@ Add to your Cursor MCP settings (`.cursor/mcp_settings.json` in your project or 
       ],
       "env": {
         "ASANA_API_KEY": "your_asana_api_key_here",
-        "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+        "NODE_TLS_REJECT_UNAUTHORIZED": "0",
+        "MCP_LOG": "true"
       }
     }
   }
 }
 ```
 
-Replace the path with your actual clone location. You can find it by running `pwd` in the cloned directory.
+**Environment Variables:**
+- `ASANA_API_KEY` (required): Your Asana personal access token
+- `NODE_TLS_REJECT_UNAUTHORIZED` (optional): Set to "0" to disable SSL certificate verification (for corporate proxies)
+- `MCP_LOG` (optional): Set to "false" to disable logging (enabled by default)
+- `NODE_ENV` (optional): Set to "development" to include stack traces in error responses
+```
+
+Replace `/path/to/asana-node-helpers` with your actual clone location. You can find it by running `pwd` in the cloned directory.
 
 4. **Restart Cursor IDE**
 
@@ -128,6 +155,56 @@ Cursor agents will now have access to Asana tools!
 - `search_projects` - Find projects by name
 - `get_my_tasks` - Quick access to your incomplete tasks
 
+### Formatting Guide for Task Notes and Comments
+
+When creating or updating tasks through the MCP server, markdown is automatically converted to Asana-compatible HTML. Follow these guidelines for best results:
+
+**Supported Markdown Features:**
+- **Bold text:** `**bold**`
+- *Italic text:* `*italic*`
+- Lists (bullet and numbered)
+- Code blocks (triple backticks)
+- Links: `[text](url)`
+
+**Linking to Asana Resources:**
+
+❌ **WRONG:** Using @mentions or text-only references
+```markdown
+**Owner:** @John Doe
+**Task:** Task 1234567890
+```
+
+✅ **CORRECT:** Using full Asana URLs as markdown links
+```markdown
+**Owner:** https://app.asana.com/0/profile/1234567890123456
+**Task:** https://app.asana.com/0/9876543210987654/1234567890123456
+**Project:** https://app.asana.com/0/9876543210987654/list
+```
+
+**URL Formats:**
+- **User profiles:** `https://app.asana.com/0/profile/USER_GID`
+- **Tasks:** `https://app.asana.com/0/PROJECT_GID/TASK_GID`
+- **Projects:** `https://app.asana.com/0/PROJECT_GID/list`
+
+**Tips:**
+- You can get these URLs directly from the Asana web interface
+- User GIDs can be found with `search_tasks` or `get_task` results
+- When you include full URLs, Asana will automatically render them as clickable links with context
+
+**Example Task Description:**
+```markdown
+**Owner:** https://app.asana.com/0/profile/1234567890123456
+**Flag name:** `autocompleteTabs`
+**Associated Project:** https://app.asana.com/0/9876543210987654/list
+
+**Additional Information:**
+- Default Value: true
+- Purpose: Enable tab autocomplete feature
+- Added: January 15, 2026
+
+See related task: https://app.asana.com/0/9876543210987654/1234567890123456
+```
+
 ### Example Usage with Cursor Agents
 
 **Natural language queries that work:**
@@ -138,6 +215,44 @@ Cursor agents will now have access to Asana tools!
 - "Add a comment to task 1234567890 saying 'Fixed in latest commit'"
 - "Update task 1234567890 to mark it complete"
 - "Search for projects with 'Marketing' in the name"
+
+### Parameter Validation
+
+The MCP server validates parameters before sending requests to Asana:
+
+**Validated fields:**
+- **Required parameters:** Task names, GIDs, comment text
+- **Date formats:** Must be YYYY-MM-DD (e.g., 2026-02-14)
+- **GID formats:** Must be numeric (except 'me' for user references)
+- **Project lists:** Comma-separated GIDs are validated individually
+
+**Validation errors you might see:**
+```
+Error: Missing required parameter: name
+Error: Missing required parameter: task_gid
+Error: Invalid due_on format. Expected YYYY-MM-DD, got: 2026/02/14
+Error: Invalid task_gid format. Expected numeric GID, got: abc123
+Error: Invalid project GID format. Expected numeric GID, got: invalid-id
+```
+
+### Error Handling
+
+The MCP server provides detailed error messages when operations fail:
+
+- **Validation errors:** Caught before API calls (see above)
+- **File errors:** "Failed to read notes file: [details]"
+- **Asana API errors:** Full error messages from Asana API (e.g., permission issues, not found)
+- **Unknown tool errors:** "Unknown tool: [tool_name]"
+- **Development mode:** Set `NODE_ENV=development` in MCP config to include stack traces
+
+**Example error responses:**
+```
+Error: Missing required parameter: task_gid
+Error: Invalid due_on format. Expected YYYY-MM-DD, got: 02-14-2026
+Error: You should specify one of workspace, parent, or projects
+Error: Task not found
+Error: Failed to read notes file: ENOENT: no such file or directory
+```
 
 ## CLI Commands
 
