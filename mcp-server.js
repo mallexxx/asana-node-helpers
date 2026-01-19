@@ -635,21 +635,10 @@ async function main() {
         
         log('info', 'Starting Asana MCP Server', startupInfo);
         
-        console.error('Starting Asana MCP Server...');
-        console.error(`  PID: ${process.pid}`);
-        console.error(`  CWD: ${process.cwd()}`);
-        console.error(`  __dirname: ${__dirname}`);
-        if (LOG_ENABLED) {
-            console.error(`  Logging to: ${LOG_FILE}`);
-        } else {
-            console.error(`  Logging disabled (MCP_LOG=${process.env.MCP_LOG})`);
-        }
-        
         const transport = new StdioServerTransport();
         await server.connect(transport);
         
         log('info', 'Asana MCP Server started successfully');
-        console.error('Asana MCP Server running on stdio');
     } catch (error) {
         log('error', 'Failed to start server', { error: error.message, stack: error.stack });
         console.error('Failed to start server:', error);
