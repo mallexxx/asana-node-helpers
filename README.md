@@ -166,30 +166,24 @@ When creating or updating tasks through the MCP server, markdown is automaticall
 - Code blocks (triple backticks)
 - Links: `[text](url)`
 
-**Linking to Asana Resources:**
+**Linking to Asana Users and Resources:**
 
-❌ **WRONG:** Using @mentions or text-only references
+To mention users in task descriptions or comments, use markdown link syntax with Asana profile URLs:
 ```markdown
-**Owner:** @John Doe
-**Task:** Task 1234567890
+**Owner:** [Alice Smith](https://app.asana.com/0/profile/1234567890123456)
 ```
+This will display as "@Alice Smith" in Asana (a clickable user mention).
 
-✅ **CORRECT:** Using full Asana URLs as markdown links
+You can also use bare URLs for users, tasks, or projects:
 ```markdown
 **Owner:** https://app.asana.com/0/profile/1234567890123456
 **Task:** https://app.asana.com/0/9876543210987654/1234567890123456
-**Project:** https://app.asana.com/0/9876543210987654/list
 ```
 
 **URL Formats:**
-- **User profiles:** `https://app.asana.com/0/profile/USER_GID`
+- **User profiles:** `https://app.asana.com/0/profile/USER_GID` or `[Name](https://app.asana.com/0/profile/USER_GID)`
 - **Tasks:** `https://app.asana.com/0/PROJECT_GID/TASK_GID`
 - **Projects:** `https://app.asana.com/0/PROJECT_GID/list`
-
-**Tips:**
-- You can get these URLs directly from the Asana web interface
-- User GIDs can be found with `search_tasks` or `get_task` results
-- When you include full URLs, Asana will automatically render them as clickable links with context
 
 **Example Task Description:**
 ```markdown

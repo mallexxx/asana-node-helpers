@@ -191,10 +191,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 FORMATTING GUIDE:
 - Markdown is automatically converted to Asana HTML
 - Supported: **bold**, *italic*, lists, code blocks, links
-- To link to users: Use full Asana profile URL: https://app.asana.com/0/profile/USER_GID (not @mentions)
-- To link to tasks: Use full Asana task URL: https://app.asana.com/0/PROJECT_GID/TASK_GID
-- To link to projects: Use full Asana project URL: https://app.asana.com/0/PROJECT_GID/list
-- Example: **Owner:** https://app.asana.com/0/profile/1234567890123456`,
+- To mention users: Use markdown links [Name](https://app.asana.com/0/profile/USER_GID) - displays as @Name in Asana
+- To link to tasks/projects: Use bare URLs https://app.asana.com/0/PROJECT_GID/TASK_GID
+- Example: **Owner:** [Alice Smith](https://app.asana.com/0/profile/1234567890123456)`,
                 inputSchema: {
                     type: 'object',
                     properties: {
@@ -219,10 +218,9 @@ FORMATTING GUIDE:
 FORMATTING GUIDE:
 - Markdown is automatically converted to Asana HTML
 - Supported: **bold**, *italic*, lists, code blocks, links
-- To link to users: Use full Asana profile URL: https://app.asana.com/0/profile/USER_GID (not @mentions)
-- To link to tasks: Use full Asana task URL: https://app.asana.com/0/PROJECT_GID/TASK_GID
-- To link to projects: Use full Asana project URL: https://app.asana.com/0/PROJECT_GID/list
-- Example: **Owner:** https://app.asana.com/0/profile/1234567890123456`,
+- To mention users: Use markdown links [Name](https://app.asana.com/0/profile/USER_GID) - displays as @Name in Asana
+- To link to tasks/projects: Use bare URLs https://app.asana.com/0/PROJECT_GID/TASK_GID
+- Example: **Owner:** [Alice Smith](https://app.asana.com/0/profile/1234567890123456)`,
                 inputSchema: {
                     type: 'object',
                     properties: {
@@ -247,9 +245,9 @@ FORMATTING GUIDE:
 FORMATTING GUIDE:
 - Markdown is automatically converted to Asana HTML
 - Supported: **bold**, *italic*, lists, code blocks, links
-- To link to users: Use full Asana profile URL: https://app.asana.com/0/profile/USER_GID (not @mentions)
-- To link to tasks: Use full Asana task URL: https://app.asana.com/0/PROJECT_GID/TASK_GID
-- Example: **Owner:** https://app.asana.com/0/profile/1234567890123456`,
+- To mention users: Use markdown links [Name](https://app.asana.com/0/profile/USER_GID) - displays as @Name in Asana
+- To link to tasks/projects: Use bare URLs https://app.asana.com/0/PROJECT_GID/TASK_GID
+- Example: **Owner:** [Alice Smith](https://app.asana.com/0/profile/1234567890123456)`,
                 inputSchema: {
                     type: 'object',
                     properties: {
