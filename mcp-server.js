@@ -577,26 +577,30 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return result;
         
     } catch (error) {
-        // Log error
-        const duration = Date.now() - startTime;
-        log('error', `Tool failed: ${name}`, { 
-            duration: `${duration}ms`,
-            error: error.message,
-            stack: error.stack
-        });
-        
         // Extract detailed error information
         let errorMessage = error.message;
+        let errorDetails = null;
         
         // Asana API errors have detailed info in response.body
         if (error.response?.body) {
             const body = error.response.body;
+            errorDetails = body; // Save full response for logging
             if (body.errors && body.errors.length > 0) {
                 errorMessage = body.errors.map(e => e.message).join('; ');
             } else if (body.error) {
                 errorMessage = body.error;
             }
         }
+        
+        // Log error with full details
+        const duration = Date.now() - startTime;
+        log('error', `Tool failed: ${name}`, { 
+            duration: `${duration}ms`,
+            error: error.message,
+            detailedError: errorMessage,
+            asanaResponse: errorDetails,
+            stack: error.stack
+        });
         
         // Include stack trace in development mode
         const isDev = process.env.NODE_ENV === 'development';
