@@ -92,7 +92,8 @@ if (require.main === module) {
         'add-comment': ['text', 'html_text', 'markdown'],
         'add-to-project': ['project', 'section'],
         'remove-from-project': ['project'],
-        'task': ['format']
+        'task': ['format'],
+        'save-task-notes': ['file', 'format']
     };
     
     function validateFlags(command, args) {
@@ -126,6 +127,7 @@ if (require.main === module) {
         console.log('  completed                      - Fetch YOUR last 20 completed tasks');
         console.log('  task <gid> [--format markdown|html|raw] - Get details of a specific task');
         console.log('  task-comments <gid>            - Get comments/discussion for a task');
+        console.log('  save-task-notes <gid> --file <path> [--format markdown|html|raw] - Save task notes to file');
         console.log('  add-comment <gid> --text <text> - Add a comment to a task');
         console.log('  user                           - Show current user info');
         console.log('  projects [options]             - Search projects in your workspace');
@@ -258,6 +260,89 @@ if (require.main === module) {
                             console.log(`   ${story.text || '(no text)'}\n`);
                         });
                     }
+                    break;
+                
+                case 'save-task-notes':
+                    const taskGidForSave = process.argv[3];
+                    if (!taskGidForSave) {
+                        console.log('Please provide a task GID and file path');
+                        console.log('Usage: node index.js save-task-notes <task_gid> --file <path> [--format markdown|html|raw]');
+                        console.log('\nOptions:');
+                        console.log('  --file <path>         - File path to save notes (required)');
+                        console.log('  --format <type>       - Output format: markdown (default), html, or raw\n');
+                        console.log('Examples:');
+                        console.log('  node index.js save-task-notes 1234567890 --file task-notes.md');
+                        console.log('  node index.js save-task-notes 1234567890 --file task.html --format html');
+                        process.exit(1);
+                    }
+                    
+                    const saveArgs = process.argv.slice(4);
+                    const saveValidation = validateFlags('save-task-notes', saveArgs);
+                    if (!saveValidation.valid) {
+                        console.log(`\n❌ Error: Invalid flag(s): ${saveValidation.invalidFlags.join(', ')}\n`);
+                        console.log('Usage: node index.js save-task-notes <task_gid> --file <path> [--format markdown|html|raw]');
+                        console.log('\nAllowed flags: --file, --format');
+                        process.exit(1);
+                    }
+                    
+                    const saveOptions = {};
+                    for (let i = 0; i < saveArgs.length; i++) {
+                        if (saveArgs[i].startsWith('--')) {
+                            const flag = saveArgs[i].substring(2);
+                            const value = saveArgs[i + 1];
+                            saveOptions[flag] = value;
+                            i++;
+                        }
+                    }
+                    
+                    if (!saveOptions.file) {
+                        console.log('Please provide a file path using --file');
+                        process.exit(1);
+                    }
+                    
+                    const saveFormat = saveOptions.format || 'markdown';
+                    if (!['markdown', 'html', 'raw'].includes(saveFormat)) {
+                        console.log('Invalid format. Use: markdown, html, or raw');
+                        process.exit(1);
+                    }
+                    
+                    const taskToSave = await getTask(tasksApiInstance, taskGidForSave);
+                    
+                    let contentToSave = '';
+                    if (saveFormat === 'html' && taskToSave.html_notes) {
+                        contentToSave = taskToSave.html_notes;
+                    } else if (saveFormat === 'raw' && taskToSave.notes) {
+                        contentToSave = taskToSave.notes;
+                    } else if (taskToSave.html_notes) {
+                        // Default: Convert HTML to markdown
+                        const { convertHtmlToMarkdown } = require('./lib/display');
+                        contentToSave = convertHtmlToMarkdown(taskToSave.html_notes);
+                    } else if (taskToSave.notes) {
+                        contentToSave = taskToSave.notes;
+                    } else {
+                        console.log('❌ Task has no notes/description to save');
+                        process.exit(1);
+                    }
+                    
+                    // Resolve file path
+                    const saveFilePath = path.isAbsolute(saveOptions.file) 
+                        ? saveOptions.file 
+                        : path.resolve(process.cwd(), saveOptions.file);
+                    
+                    // Ensure directory exists
+                    const saveDir = path.dirname(saveFilePath);
+                    if (!fs.existsSync(saveDir)) {
+                        fs.mkdirSync(saveDir, { recursive: true });
+                    }
+                    
+                    // Write file
+                    fs.writeFileSync(saveFilePath, contentToSave, 'utf8');
+                    
+                    console.log('\n✅ Task notes saved successfully!');
+                    console.log(`Task: ${taskToSave.name}`);
+                    console.log(`Format: ${saveFormat}`);
+                    console.log(`File: ${saveFilePath}`);
+                    console.log(`Size: ${contentToSave.length} characters\n`);
                     break;
                 
                 case 'add-comment':

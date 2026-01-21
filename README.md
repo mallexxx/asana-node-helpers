@@ -164,6 +164,7 @@ Cursor agents will now have access to Asana tools!
 
 - `search_tasks` - Search with filters (assignee, projects, dates, completion status, text, tags)
 - `get_task` - Get detailed task information
+- `save_task_notes` - Save task notes/description to file (markdown/HTML/raw)
 - `create_task` - Create new tasks (supports markdown)
 - `update_task` - Update any task field
 - `add_comment` - Add comments (supports markdown)
@@ -192,6 +193,8 @@ To mention users in task descriptions or comments, use markdown link syntax with
 **Owner:** [Alice Smith](https://app.asana.com/0/profile/1234567890123456)
 ```
 This will display as "@Alice Smith" in Asana (a clickable user mention).
+
+**When exporting:** User mentions are preserved in this same markdown link format, making them reversible - you can save task notes to a file, edit them, and upload them back to Asana without losing the user mentions.
 
 You can also use bare URLs for users, tasks, or projects:
 ```markdown
@@ -383,6 +386,36 @@ node index.js task-comments 1234567890
   - Author name and GID
   - Timestamp
   - Comment text
+
+#### Save Task Notes to File
+
+Save task notes/description to a file in markdown, HTML, or raw text format:
+
+```bash
+node index.js save-task-notes <task_gid> --file <path> [--format markdown|html|raw]
+```
+
+**Options:**
+- `--file <path>` - File path to save notes (required)
+- `--format <type>` - Output format (default: markdown)
+  - `markdown` - Converts HTML notes to clean markdown
+  - `html` - Saves raw HTML from Asana
+  - `raw` - Saves plain text from notes field
+
+**Examples:**
+
+```bash
+# Save task notes as markdown
+node index.js save-task-notes 1234567890 --file task-notes.md
+
+# Save as HTML for inspection
+node index.js save-task-notes 1234567890 --file task.html --format html
+
+# Save plain text only
+node index.js save-task-notes 1234567890 --file task.txt --format raw
+```
+
+**Note:** When exporting to markdown format, user mentions are preserved as markdown links (e.g., `[Alice Smith](https://app.asana.com/0/profile/123)`). This format is **reversible** - you can edit the file and upload it back to Asana, and the mentions will be converted back to proper clickable user mentions.
 
 **Note:** The comment count is also displayed when using the `task <gid>` command.
 

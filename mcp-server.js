@@ -73,6 +73,7 @@ const {
     searchTasks 
 } = require('./lib/tasks');
 const { searchProjects, getSections } = require('./lib/projects');
+const { convertHtmlToMarkdown } = require('./lib/display');
 
 // Validation helpers
 function validateDateFormat(dateString, fieldName) {
@@ -185,6 +186,23 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         task_gid: { type: 'string', description: 'Task GID' }
                     },
                     required: ['task_gid']
+                }
+            },
+            {
+                name: 'save_task_notes',
+                description: 'Save task notes/description to a file in markdown, HTML, or raw text format.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        task_gid: { type: 'string', description: 'Task GID' },
+                        file_path: { type: 'string', description: 'Path to save the file (absolute or relative to workspace)' },
+                        format: { 
+                            type: 'string', 
+                            description: 'Output format: "markdown" (default), "html", or "raw"',
+                            enum: ['markdown', 'html', 'raw']
+                        }
+                    },
+                    required: ['task_gid', 'file_path']
                 }
             },
             {
@@ -400,6 +418,56 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                         {
                             type: 'text',
                             text: JSON.stringify(task, null, 2)
+                        }
+                    ]
+                };
+                break;
+            }
+            
+            case 'save_task_notes': {
+                // Validate required parameters
+                validateRequired(args.task_gid, 'task_gid');
+                validateGid(args.task_gid, 'task_gid');
+                validateRequired(args.file_path, 'file_path');
+                
+                const format = args.format || 'markdown';
+                
+                // Get task details
+                const task = await getTask(tasksApiInstance, args.task_gid);
+                
+                let content = '';
+                if (format === 'html' && task.html_notes) {
+                    content = task.html_notes;
+                } else if (format === 'raw' && task.notes) {
+                    content = task.notes;
+                } else if (task.html_notes) {
+                    // Default: Convert HTML to markdown
+                    content = convertHtmlToMarkdown(task.html_notes);
+                } else if (task.notes) {
+                    content = task.notes;
+                } else {
+                    throw new Error('Task has no notes/description to save');
+                }
+                
+                // Resolve file path (handle both absolute and relative paths)
+                const filePath = path.isAbsolute(args.file_path) 
+                    ? args.file_path 
+                    : path.resolve(process.cwd(), args.file_path);
+                
+                // Ensure directory exists
+                const dir = path.dirname(filePath);
+                if (!fs.existsSync(dir)) {
+                    fs.mkdirSync(dir, { recursive: true });
+                }
+                
+                // Write file
+                fs.writeFileSync(filePath, content, 'utf8');
+                
+                result = {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Task notes saved successfully!\nTask: ${task.name}\nFormat: ${format}\nFile: ${filePath}\nSize: ${content.length} characters`
                         }
                     ]
                 };
