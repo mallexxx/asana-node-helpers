@@ -522,7 +522,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 if (args.due_on) taskData.due_on = args.due_on;
                 if (args.start_on) taskData.start_on = args.start_on;
                 
-                const task = await createTask(tasksApiInstance, taskData);
+                const task = await createTask(tasksApiInstance, taskData, { convertMarkdown: true });
                 
                 result = {
                     content: [
