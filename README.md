@@ -62,6 +62,22 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 node index.js search-tasks --assignee.any me
 
 ⚠️ **Note:** Disabling certificate verification should only be used in development environments. This makes your connection less secure.
 
+## Formatting Support
+
+### File Uploads
+- **Markdown files** (`.md`, `.markdown`, `.mdown`, `.mkd`, `.mdx`, `.mdc`): Automatically converted to Asana HTML
+- **HTML files** (`.html`, `.htm`): Cleaned up and used directly
+- **No extension**: Treated as markdown (default)
+
+### Task Display
+- `node index.js task <gid>` - Default: Markdown format
+- `node index.js task <gid> --format html` - Raw HTML
+- `node index.js task <gid> --format raw` - Plain text
+
+### Asana HTML Limitations
+Asana supports: h1, h2, strong, em, ul, ol, li, code, pre, a, hr, tables.  
+Not supported: h3-h6 (converted to h2), p, br, blockquote.
+
 ## MCP Server (Model Context Protocol)
 
 This project can be used as an MCP server, making Asana functionality available to AI assistants like Claude Desktop, Cursor agents, and other MCP-compatible clients.

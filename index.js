@@ -124,7 +124,7 @@ if (require.main === module) {
         console.log('Commands:');
         console.log('  tasks                          - Fetch YOUR incomplete tasks');
         console.log('  completed                      - Fetch YOUR last 20 completed tasks');
-        console.log('  task <gid> [--format]          - Get details of a specific task');
+        console.log('  task <gid> [--format markdown|html|raw] - Get details of a specific task');
         console.log('  task-comments <gid>            - Get comments/discussion for a task');
         console.log('  add-comment <gid> --text <text> - Add a comment to a task');
         console.log('  user                           - Show current user info');
@@ -226,8 +226,8 @@ if (require.main === module) {
                     const formatIndex = process.argv.indexOf('--format');
                     if (formatIndex > -1 && process.argv[formatIndex + 1]) {
                         noteFormat = process.argv[formatIndex + 1];
-                        if (!['markdown', 'html', 'text'].includes(noteFormat)) {
-                            console.log('Invalid format. Use: markdown, html, or text');
+                        if (!['markdown', 'html', 'raw'].includes(noteFormat)) {
+                            console.log('Invalid format. Use: markdown, html, or raw');
                             process.exit(1);
                         }
                     }
@@ -503,8 +503,24 @@ if (require.main === module) {
                     if (taskData['notes-file']) {
                         const filePath = path.resolve(taskData['notes-file']);
                         try {
-                            taskData.notes = fs.readFileSync(filePath, 'utf8');
-                            console.log(`📄 Read notes from: ${filePath}`);
+                            const content = fs.readFileSync(filePath, 'utf8');
+                            const ext = path.extname(filePath).toLowerCase();
+                            const isHtml = ['.html', '.htm'].includes(ext);
+                            const isMarkdown = ['.md', '.markdown', '.mdown', '.mkd', '.mdx', '.mdc'].includes(ext);
+                            
+                            if (isHtml) {
+                                // HTML file: clean it up and use html_notes
+                                taskData.html_notes = content;
+                                console.log(`📄 Read HTML notes from: ${filePath}`);
+                            } else if (isMarkdown || !ext) {
+                                // Markdown file or no extension: treat as markdown (default)
+                                taskData.notes = content;
+                                console.log(`📄 Read markdown notes from: ${filePath}`);
+                            } else {
+                                // Unknown extension: treat as markdown with warning
+                                taskData.notes = content;
+                                console.log(`📄 Read notes from: ${filePath} (treating as markdown)`);
+                            }
                             delete taskData['notes-file'];
                         } catch (error) {
                             console.error(`❌ Error reading notes file: ${error.message}`);
@@ -649,8 +665,24 @@ if (require.main === module) {
                     if (updates['notes-file']) {
                         const filePath = path.resolve(updates['notes-file']);
                         try {
-                            updates.notes = fs.readFileSync(filePath, 'utf8');
-                            console.log(`📄 Read notes from: ${filePath}`);
+                            const content = fs.readFileSync(filePath, 'utf8');
+                            const ext = path.extname(filePath).toLowerCase();
+                            const isHtml = ['.html', '.htm'].includes(ext);
+                            const isMarkdown = ['.md', '.markdown', '.mdown', '.mkd', '.mdx', '.mdc'].includes(ext);
+                            
+                            if (isHtml) {
+                                // HTML file: clean it up and use html_notes
+                                updates.html_notes = content;
+                                console.log(`📄 Read HTML notes from: ${filePath}`);
+                            } else if (isMarkdown || !ext) {
+                                // Markdown file or no extension: treat as markdown (default)
+                                updates.notes = content;
+                                console.log(`📄 Read markdown notes from: ${filePath}`);
+                            } else {
+                                // Unknown extension: treat as markdown with warning
+                                updates.notes = content;
+                                console.log(`📄 Read notes from: ${filePath} (treating as markdown)`);
+                            }
                             delete updates['notes-file'];
                         } catch (error) {
                             console.error(`❌ Error reading notes file: ${error.message}`);

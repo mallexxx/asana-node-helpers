@@ -529,7 +529,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     storiesApiInstance, 
                     args.task_gid, 
                     { text: args.text },
-                    { convertMarkdown: true }
+                    { convertMarkdown: false }
                 );
                 
                 result = {
