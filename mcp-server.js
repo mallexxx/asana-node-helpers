@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Asana MCP Server
- * 
+ *
  * Exposes Asana task management capabilities as MCP tools for AI assistants.
  */
 
@@ -22,7 +22,7 @@ const LOG_ENABLED = process.env.MCP_LOG !== 'false'; // Enabled by default
 
 function log(level, message, data = null) {
     if (!LOG_ENABLED) return;
-    
+
     const timestamp = new Date().toISOString();
     const logEntry = {
         timestamp,
@@ -30,9 +30,9 @@ function log(level, message, data = null) {
         message,
         ...(data && { data })
     };
-    
+
     const logLine = JSON.stringify(logEntry) + '\n';
-    
+
     try {
         // Use appendFileSync for immediate writes (important for stdio-based servers)
         fs.appendFileSync(LOG_FILE, logLine, { encoding: 'utf8', mode: 0o666 });
@@ -47,7 +47,7 @@ function log(level, message, data = null) {
 // Test log on module load to verify logging works
 if (LOG_ENABLED) {
     try {
-        log('info', 'MCP server module loaded', { 
+        log('info', 'MCP server module loaded', {
             timestamp: new Date().toISOString(),
             logFile: LOG_FILE,
             cwd: process.cwd(),
@@ -61,14 +61,15 @@ if (LOG_ENABLED) {
 // Import our Asana helpers
 const { initializeClient } = require('./lib/client');
 const { getCurrentUser } = require('./lib/users');
-const { 
-    getTasksForUser, 
-    getTask, 
-    getTaskStories, 
+const {
+    getTasksForUser,
+    getTask,
+    getTaskStories,
     addTaskComment,
-    createTask, 
-    updateTask, 
-    searchTasks 
+    createTask,
+    updateTask,
+    searchTasks,
+    extractAsanaTaskId
 } = require('./lib/tasks');
 const { searchProjects } = require('./lib/projects');
 
@@ -108,27 +109,27 @@ let currentUser = null;
 
 async function initializeAsana() {
     log('info', 'Initializing Asana client');
-    
+
     if (!process.env.ASANA_API_KEY) {
         log('error', 'Missing ASANA_API_KEY environment variable');
         throw new Error('ASANA_API_KEY environment variable is required');
     }
-    
+
     const apiInstances = initializeClient();
     client = apiInstances.client;
     tasksApiInstance = apiInstances.tasksApiInstance;
     usersApiInstance = apiInstances.usersApiInstance;
     projectsApiInstance = apiInstances.projectsApiInstance;
     storiesApiInstance = apiInstances.storiesApiInstance;
-    
+
     // Get current user for workspace context
     currentUser = await getCurrentUser(usersApiInstance);
-    
-    log('info', 'Asana client initialized', { 
-        user: currentUser.name, 
-        workspace: currentUser.workspaces?.[0]?.name 
+
+    log('info', 'Asana client initialized', {
+        user: currentUser.name,
+        workspace: currentUser.workspaces?.[0]?.name
     });
-    
+
     return {
         user: currentUser,
         workspace: currentUser.workspaces?.[0]?.gid
@@ -151,7 +152,7 @@ const server = new Server(
 // List available tools
 server.setRequestHandler(ListToolsRequestSchema, async () => {
     log('info', 'Tools list requested');
-    
+
     return {
         tools: [
             {
@@ -286,6 +287,17 @@ FORMATTING GUIDE:
                     type: 'object',
                     properties: {}
                 }
+            },
+            {
+                name: 'extract_task_id',
+                description: 'Extract Asana task ID from a URL. Supports v0 URLs (https://app.asana.com/0/...), v1 URLs (https://app.asana.com/1/.../task/...), search results, inbox items, focused mode, and subtask URLs.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        url: { type: 'string', description: 'The Asana URL to extract task ID from' }
+                    },
+                    required: ['url']
+                }
             }
         ]
     };
@@ -295,7 +307,7 @@ FORMATTING GUIDE:
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const startTime = Date.now();
     const { name, arguments: args } = request.params;
-    
+
     // Log immediately - sanitize args to avoid logging sensitive data
     const sanitizedArgs = { ...args };
     if (sanitizedArgs.notes && sanitizedArgs.notes.length > 100) {
@@ -304,25 +316,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (sanitizedArgs.text && sanitizedArgs.text.length > 100) {
         sanitizedArgs.text = sanitizedArgs.text.substring(0, 100) + '...';
     }
-    
+
     log('info', `Tool called: ${name}`, { args: sanitizedArgs });
-    
+
     try {
         // Ensure Asana is initialized
         if (!currentUser) {
             log('info', 'Initializing Asana client (first call)');
             await initializeAsana();
         }
-        
+
         let result;
-        
+
         switch (name) {
             case 'search_tasks': {
                 const searchOptions = {
                     workspace: currentUser.workspaces[0].gid,
                     limit: args.limit || 100
                 };
-                
+
                 // Map MCP arguments to Asana API parameters
                 if (args.assignee_any) searchOptions['assignee.any'] = args.assignee_any;
                 if (args.projects_any) searchOptions['projects.any'] = args.projects_any;
@@ -333,9 +345,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 if (args.text) searchOptions.text = args.text;
                 if (args.tags_any) searchOptions['tags.any'] = args.tags_any;
                 if (args.sort_by) searchOptions.sort_by = args.sort_by;
-                
+
                 const tasks = await searchTasks(tasksApiInstance, searchOptions);
-                
+
                 result = {
                     content: [
                         {
@@ -346,16 +358,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 };
                 break;
             }
-            
+
             case 'get_task': {
                 // Validate required parameters
                 validateRequired(args.task_gid, 'task_gid');
                 validateGid(args.task_gid, 'task_gid');
-                
+
                 const task = await getTask(tasksApiInstance, args.task_gid);
                 const comments = await getTaskStories(storiesApiInstance, args.task_gid, { commentsOnly: true });
                 task.commentCount = comments.length;
-                
+
                 result = {
                     content: [
                         {
@@ -366,25 +378,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 };
                 break;
             }
-            
+
             case 'create_task': {
                 // Validate required parameters
                 validateRequired(args.name, 'name');
-                
+
                 // Validate dates
                 validateDateFormat(args.due_on, 'due_on');
                 validateDateFormat(args.start_on, 'start_on');
-                
+
                 // Validate GIDs
                 validateGid(args.assignee, 'assignee');
                 validateGid(args.parent, 'parent');
                 validateGid(args.workspace, 'workspace');
-                
+
                 const taskData = {
                     name: args.name,
                     workspace: args.workspace || currentUser.workspaces[0].gid
                 };
-                
+
                 // Handle file input for notes
                 if (args.notes_file) {
                     try {
@@ -395,7 +407,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 } else if (args.notes) {
                     taskData.notes = args.notes;
                 }
-                
+
                 if (args.html_notes_file) {
                     try {
                         taskData.html_notes = fs.readFileSync(path.resolve(args.html_notes_file), 'utf8');
@@ -403,7 +415,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                         throw new Error(`Failed to read HTML notes file: ${error.message}`);
                     }
                 }
-                
+
                 if (args.assignee) taskData.assignee = args.assignee;
                 if (args.projects) {
                     // Validate project GIDs
@@ -414,9 +426,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 if (args.parent) taskData.parent = args.parent;
                 if (args.due_on) taskData.due_on = args.due_on;
                 if (args.start_on) taskData.start_on = args.start_on;
-                
+
                 const task = await createTask(tasksApiInstance, taskData);
-                
+
                 result = {
                     content: [
                         {
@@ -427,20 +439,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 };
                 break;
             }
-            
+
             case 'update_task': {
                 // Validate required parameters
                 validateRequired(args.task_gid, 'task_gid');
                 validateGid(args.task_gid, 'task_gid');
-                
+
                 // Validate optional parameters
                 validateDateFormat(args.due_on, 'due_on');
                 validateDateFormat(args.start_on, 'start_on');
                 validateGid(args.assignee, 'assignee');
                 validateGid(args.parent, 'parent');
-                
+
                 const updates = {};
-                
+
                 // Handle file input for notes
                 if (args.notes_file) {
                     try {
@@ -451,7 +463,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 } else if (args.notes) {
                     updates.notes = args.notes;
                 }
-                
+
                 if (args.html_notes_file) {
                     try {
                         updates.html_notes = fs.readFileSync(path.resolve(args.html_notes_file), 'utf8');
@@ -459,16 +471,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                         throw new Error(`Failed to read HTML notes file: ${error.message}`);
                     }
                 }
-                
+
                 if (args.name) updates.name = args.name;
                 if (args.assignee) updates.assignee = args.assignee;
                 if (args.parent) updates.parent = args.parent;
                 if (args.due_on) updates.due_on = args.due_on;
                 if (args.start_on) updates.start_on = args.start_on;
                 if (args.completed !== undefined) updates.completed = args.completed;
-                
+
                 const task = await updateTask(tasksApiInstance, args.task_gid, updates, { convertMarkdown: true });
-                
+
                 result = {
                     content: [
                         {
@@ -479,20 +491,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 };
                 break;
             }
-            
+
             case 'add_comment': {
                 // Validate required parameters
                 validateRequired(args.task_gid, 'task_gid');
                 validateRequired(args.text, 'text');
                 validateGid(args.task_gid, 'task_gid');
-                
+
                 const comment = await addTaskComment(
-                    storiesApiInstance, 
-                    args.task_gid, 
+                    storiesApiInstance,
+                    args.task_gid,
                     { text: args.text },
                     { convertMarkdown: true }
                 );
-                
+
                 result = {
                     content: [
                         {
@@ -503,14 +515,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 };
                 break;
             }
-            
+
             case 'get_task_comments': {
                 // Validate required parameters
                 validateRequired(args.task_gid, 'task_gid');
                 validateGid(args.task_gid, 'task_gid');
-                
+
                 const comments = await getTaskStories(storiesApiInstance, args.task_gid, { commentsOnly: true });
-                
+
                 result = {
                     content: [
                         {
@@ -521,18 +533,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 };
                 break;
             }
-            
+
             case 'search_projects': {
                 const searchOptions = {};
                 if (args.name) searchOptions.name = args.name;
                 if (args.archived !== undefined) searchOptions.archived = args.archived;
-                
+
                 const projects = await searchProjects(
                     projectsApiInstance,
                     currentUser.workspaces[0].gid,
                     searchOptions
                 );
-                
+
                 result = {
                     content: [
                         {
@@ -543,7 +555,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 };
                 break;
             }
-            
+
             case 'get_my_tasks': {
                 const tasks = await getTasksForUser(
                     tasksApiInstance,
@@ -551,7 +563,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     currentUser.workspaces[0].gid,
                     { completed: false }
                 );
-                
+
                 result = {
                     content: [
                         {
@@ -562,23 +574,51 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 };
                 break;
             }
-            
+
+            case 'extract_task_id': {
+                validateRequired(args.url, 'url');
+
+                const taskId = extractAsanaTaskId(args.url);
+
+                if (taskId) {
+                    result = {
+                        content: [
+                            {
+                                type: 'text',
+                                text: JSON.stringify({ task_id: taskId, url: args.url }, null, 2)
+                            }
+                        ]
+                    };
+                } else {
+                    result = {
+                        content: [
+                            {
+                                type: 'text',
+                                text: `Error: Could not extract task ID from URL: ${args.url}`
+                            }
+                        ],
+                        isError: true
+                    };
+                }
+                break;
+            }
+
             default:
                 log('error', `Unknown tool: ${name}`);
                 throw new Error(`Unknown tool: ${name}`);
         }
-        
+
         // Log successful completion
         const duration = Date.now() - startTime;
         log('info', `Tool completed: ${name}`, { duration: `${duration}ms` });
-        
+
         return result;
-        
+
     } catch (error) {
         // Extract detailed error information
         let errorMessage = error.message;
         let errorDetails = null;
-        
+
         // Asana API errors have detailed info in response.body
         if (error.response?.body) {
             const body = error.response.body;
@@ -589,23 +629,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 errorMessage = body.error;
             }
         }
-        
+
         // Log error with full details
         const duration = Date.now() - startTime;
-        log('error', `Tool failed: ${name}`, { 
+        log('error', `Tool failed: ${name}`, {
             duration: `${duration}ms`,
             error: error.message,
             detailedError: errorMessage,
             asanaResponse: errorDetails,
             stack: error.stack
         });
-        
+
         // Include stack trace in development mode
         const isDev = process.env.NODE_ENV === 'development';
-        const fullError = isDev && error.stack 
+        const fullError = isDev && error.stack
             ? `${errorMessage}\n\nStack trace:\n${error.stack}`
             : errorMessage;
-        
+
         return {
             content: [
                 {
@@ -630,12 +670,12 @@ async function main() {
             nodeVersion: process.version,
             pid: process.pid
         };
-        
+
         log('info', 'Starting Asana MCP Server', startupInfo);
-        
+
         const transport = new StdioServerTransport();
         await server.connect(transport);
-        
+
         log('info', 'Asana MCP Server started successfully');
     } catch (error) {
         log('error', 'Failed to start server', { error: error.message, stack: error.stack });
