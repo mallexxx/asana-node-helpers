@@ -12,9 +12,9 @@ const path = require('path');
 // Import feature modules
 const { initializeClient } = require('./lib/client');
 const { getCurrentUser, getUser } = require('./lib/users');
-const { getTasksForUser, getTask, getTaskStories, addTaskComment, createTask, updateTask, searchTasks, displaySearchedTasks } = require('./lib/tasks');
+const { getTasksForUser, getTask, getTaskStories, addTaskComment, createTask, updateTask, addTaskToProject, removeTaskFromProject, searchTasks, displaySearchedTasks } = require('./lib/tasks');
 const { displayTasks, displayTaskDetails, displayUserInfo } = require('./lib/display');
-const { searchProjects, displayProjects, clearCache } = require('./lib/projects');
+const { searchProjects, displayProjects, getSections, displaySections, clearCache } = require('./lib/projects');
 
 // Initialize Asana client (this validates API key)
 const {
@@ -23,7 +23,8 @@ const {
     usersApiInstance,
     projectsApiInstance,
     workspacesApiInstance,
-    storiesApiInstance
+    storiesApiInstance,
+    sectionsApiInstance
 } = initializeClient();
 
 // Export everything for use in other modules
@@ -66,6 +67,7 @@ if (require.main === module) {
     // Valid flags for each command
     const VALID_FLAGS = {
         'projects': ['name', 'archived', 'format', 'fields'],
+        'sections': ['project', 'format', 'fields'],
         'search-tasks': [
             'format', 'fields', 'limit',
             'projects', 'projects.any', 'projects.not', 'projects.all',
@@ -88,6 +90,8 @@ if (require.main === module) {
         'create-task': ['name', 'notes', 'notes-file', 'html_notes', 'html_notes-file', 'assignee', 'projects', 'workspace', 'parent', 'due_on', 'due_at', 'start_on', 'completed', 'markdown'],
         'update-task': ['name', 'notes', 'notes-file', 'html_notes', 'html_notes-file', 'assignee', 'projects', 'parent', 'due_on', 'due_at', 'start_on', 'completed', 'markdown'],
         'add-comment': ['text', 'html_text', 'markdown'],
+        'add-to-project': ['project', 'section'],
+        'remove-from-project': ['project'],
         'task': ['format']
     };
     
@@ -120,14 +124,17 @@ if (require.main === module) {
         console.log('Commands:');
         console.log('  tasks                          - Fetch YOUR incomplete tasks');
         console.log('  completed                      - Fetch YOUR last 20 completed tasks');
-        console.log('  task <gid> [--format]          - Get details of a specific task');
+        console.log('  task <gid> [--format markdown|html|raw] - Get details of a specific task');
         console.log('  task-comments <gid>            - Get comments/discussion for a task');
         console.log('  add-comment <gid> --text <text> - Add a comment to a task');
         console.log('  user                           - Show current user info');
         console.log('  projects [options]             - Search projects in your workspace');
+        console.log('  sections <project_gid>         - List sections in a project');
         console.log('  search-tasks [options]         - Search tasks with advanced filters');
         console.log('  create-task --name <name> [options] - Create a new task');
         console.log('  update-task <gid> [options]    - Update an existing task');
+        console.log('  add-to-project <task_gid> --project <gid> [--section <gid>] - Add/move task to project/section');
+        console.log('  remove-from-project <task_gid> --project <gid> - Remove task from project');
         console.log('  clear-cache                    - Clear projects cache\n');
         console.log('Project search options (use --flag value):');
         console.log('  --name <text>                  - Search by name');
@@ -219,8 +226,8 @@ if (require.main === module) {
                     const formatIndex = process.argv.indexOf('--format');
                     if (formatIndex > -1 && process.argv[formatIndex + 1]) {
                         noteFormat = process.argv[formatIndex + 1];
-                        if (!['markdown', 'html', 'text'].includes(noteFormat)) {
-                            console.log('Invalid format. Use: markdown, html, or text');
+                        if (!['markdown', 'html', 'raw'].includes(noteFormat)) {
+                            console.log('Invalid format. Use: markdown, html, or raw');
                             process.exit(1);
                         }
                     }
@@ -496,8 +503,24 @@ if (require.main === module) {
                     if (taskData['notes-file']) {
                         const filePath = path.resolve(taskData['notes-file']);
                         try {
-                            taskData.notes = fs.readFileSync(filePath, 'utf8');
-                            console.log(`📄 Read notes from: ${filePath}`);
+                            const content = fs.readFileSync(filePath, 'utf8');
+                            const ext = path.extname(filePath).toLowerCase();
+                            const isHtml = ['.html', '.htm'].includes(ext);
+                            const isMarkdown = ['.md', '.markdown', '.mdown', '.mkd', '.mdx', '.mdc'].includes(ext);
+                            
+                            if (isHtml) {
+                                // HTML file: clean it up and use html_notes
+                                taskData.html_notes = content;
+                                console.log(`📄 Read HTML notes from: ${filePath}`);
+                            } else if (isMarkdown || !ext) {
+                                // Markdown file or no extension: treat as markdown (default)
+                                taskData.notes = content;
+                                console.log(`📄 Read markdown notes from: ${filePath}`);
+                            } else {
+                                // Unknown extension: treat as markdown with warning
+                                taskData.notes = content;
+                                console.log(`📄 Read notes from: ${filePath} (treating as markdown)`);
+                            }
                             delete taskData['notes-file'];
                         } catch (error) {
                             console.error(`❌ Error reading notes file: ${error.message}`);
@@ -642,8 +665,24 @@ if (require.main === module) {
                     if (updates['notes-file']) {
                         const filePath = path.resolve(updates['notes-file']);
                         try {
-                            updates.notes = fs.readFileSync(filePath, 'utf8');
-                            console.log(`📄 Read notes from: ${filePath}`);
+                            const content = fs.readFileSync(filePath, 'utf8');
+                            const ext = path.extname(filePath).toLowerCase();
+                            const isHtml = ['.html', '.htm'].includes(ext);
+                            const isMarkdown = ['.md', '.markdown', '.mdown', '.mkd', '.mdx', '.mdc'].includes(ext);
+                            
+                            if (isHtml) {
+                                // HTML file: clean it up and use html_notes
+                                updates.html_notes = content;
+                                console.log(`📄 Read HTML notes from: ${filePath}`);
+                            } else if (isMarkdown || !ext) {
+                                // Markdown file or no extension: treat as markdown (default)
+                                updates.notes = content;
+                                console.log(`📄 Read markdown notes from: ${filePath}`);
+                            } else {
+                                // Unknown extension: treat as markdown with warning
+                                updates.notes = content;
+                                console.log(`📄 Read notes from: ${filePath} (treating as markdown)`);
+                            }
                             delete updates['notes-file'];
                         } catch (error) {
                             console.error(`❌ Error reading notes file: ${error.message}`);
@@ -681,6 +720,114 @@ if (require.main === module) {
                     console.log(`Name: ${updatedTask.name}`);
                     if (updatedTask.start_on) console.log(`Start: ${updatedTask.start_on}`);
                     if (updatedTask.due_on) console.log(`Due: ${updatedTask.due_on}`);
+                    break;
+                
+                case 'sections':
+                    const projectGidForSections = process.argv[3];
+                    if (!projectGidForSections) {
+                        console.log('Usage: node index.js sections <project_gid> [--format json|list|table] [--fields name,gid]');
+                        console.log('\nList all sections in a project');
+                        console.log('\nOptions:');
+                        console.log('  --format <format>   - Output format: list (default), table, json');
+                        console.log('  --fields <fields>   - Comma-separated fields to display (default: name,gid)\n');
+                        console.log('Example:');
+                        console.log('  node index.js sections 1234567890');
+                        process.exit(1);
+                    }
+                    
+                    const sectionsArgs = process.argv.slice(4);
+                    const sectionsValidation = validateFlags('sections', sectionsArgs);
+                    if (!sectionsValidation.valid) {
+                        console.error(`\n❌ Invalid flag(s): --${sectionsValidation.invalidFlags.join(', --')}\n`);
+                        console.log('Valid flags for sections command:');
+                        console.log('  --format <format>   - Output format: list, table, json');
+                        console.log('  --fields <fields>   - Comma-separated fields to display\n');
+                        process.exit(1);
+                    }
+                    
+                    const sectionsOptions = parseArgs(sectionsArgs);
+                    const sections = await getSections(sectionsApiInstance, projectGidForSections);
+                    
+                    const sectionsDisplayOpts = {
+                        format: sectionsOptions.format || 'list',
+                        fields: sectionsOptions.fields ? sectionsOptions.fields.split(',') : ['name', 'gid']
+                    };
+                    
+                    displaySections(sections, sectionsDisplayOpts);
+                    break;
+                
+                case 'add-to-project':
+                    const taskGidForAdd = process.argv[3];
+                    if (!taskGidForAdd) {
+                        console.log('Usage: node index.js add-to-project <task_gid> --project <project_gid> [--section <section_gid>]');
+                        console.log('\nAdd task to a project, or move task to a section if already in project');
+                        console.log('\nOptions:');
+                        console.log('  --project <gid>   - Project GID (required)');
+                        console.log('  --section <gid>   - Section GID within the project (optional)\n');
+                        console.log('Examples:');
+                        console.log('  node index.js add-to-project 1234567890 --project 9876543210');
+                        console.log('  node index.js add-to-project 1234567890 --project 9876543210 --section 1111111111');
+                        console.log('\nTip: Use "sections <project_gid>" to list sections in a project');
+                        process.exit(1);
+                    }
+                    
+                    const addArgs = process.argv.slice(4);
+                    const addValidation = validateFlags('add-to-project', addArgs);
+                    if (!addValidation.valid) {
+                        console.error(`\n❌ Invalid flag(s): --${addValidation.invalidFlags.join(', --')}\n`);
+                        console.log('Valid flags for add-to-project command:');
+                        console.log('  --project <gid>   - Project GID (required)');
+                        console.log('  --section <gid>   - Section GID (optional)\n');
+                        process.exit(1);
+                    }
+                    
+                    const addOptions = parseArgs(addArgs);
+                    if (!addOptions.project) {
+                        console.error('❌ --project flag is required\n');
+                        console.log('Usage: node index.js add-to-project <task_gid> --project <project_gid> [--section <section_gid>]');
+                        process.exit(1);
+                    }
+                    
+                    await addTaskToProject(tasksApiInstance, taskGidForAdd, addOptions.project, addOptions.section);
+                    console.log('✅ Task updated successfully!');
+                    if (addOptions.section) {
+                        console.log(`Task ${taskGidForAdd} moved to section ${addOptions.section} in project ${addOptions.project}`);
+                    } else {
+                        console.log(`Task ${taskGidForAdd} added to project ${addOptions.project}`);
+                    }
+                    break;
+                
+                case 'remove-from-project':
+                    const taskGidForRemove = process.argv[3];
+                    if (!taskGidForRemove) {
+                        console.log('Usage: node index.js remove-from-project <task_gid> --project <project_gid>');
+                        console.log('\nRemove task from a project');
+                        console.log('\nOptions:');
+                        console.log('  --project <gid>   - Project GID (required)\n');
+                        console.log('Example:');
+                        console.log('  node index.js remove-from-project 1234567890 --project 9876543210');
+                        process.exit(1);
+                    }
+                    
+                    const removeArgs = process.argv.slice(4);
+                    const removeValidation = validateFlags('remove-from-project', removeArgs);
+                    if (!removeValidation.valid) {
+                        console.error(`\n❌ Invalid flag(s): --${removeValidation.invalidFlags.join(', --')}\n`);
+                        console.log('Valid flags for remove-from-project command:');
+                        console.log('  --project <gid>   - Project GID (required)\n');
+                        process.exit(1);
+                    }
+                    
+                    const removeOptions = parseArgs(removeArgs);
+                    if (!removeOptions.project) {
+                        console.error('❌ --project flag is required\n');
+                        console.log('Usage: node index.js remove-from-project <task_gid> --project <project_gid>');
+                        process.exit(1);
+                    }
+                    
+                    await removeTaskFromProject(tasksApiInstance, taskGidForRemove, removeOptions.project);
+                    console.log('✅ Task removed from project successfully!');
+                    console.log(`Task ${taskGidForRemove} removed from project ${removeOptions.project}`);
                     break;
                 
                 case 'clear-cache':

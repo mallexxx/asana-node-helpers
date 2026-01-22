@@ -62,6 +62,22 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 node index.js search-tasks --assignee.any me
 
 ⚠️ **Note:** Disabling certificate verification should only be used in development environments. This makes your connection less secure.
 
+## Formatting Support
+
+### File Uploads
+- **Markdown files** (`.md`, `.markdown`, `.mdown`, `.mkd`, `.mdx`, `.mdc`): Automatically converted to Asana HTML
+- **HTML files** (`.html`, `.htm`): Cleaned up and used directly
+- **No extension**: Treated as markdown (default)
+
+### Task Display
+- `node index.js task <gid>` - Default: Markdown format
+- `node index.js task <gid> --format html` - Raw HTML
+- `node index.js task <gid> --format raw` - Plain text
+
+### Asana HTML Limitations
+Asana supports: h1, h2, strong, em, ul, ol, li, code, pre, a, hr, tables.  
+Not supported: h3-h6 (converted to h2), p, br, blockquote.
+
 ## MCP Server (Model Context Protocol)
 
 This project can be used as an MCP server, making Asana functionality available to AI assistants like Claude Desktop, Cursor agents, and other MCP-compatible clients.
@@ -154,6 +170,9 @@ Cursor agents will now have access to Asana tools!
 - `get_task_comments` - Get all comments for a task
 - `search_projects` - Find projects by name
 - `get_my_tasks` - Quick access to your incomplete tasks
+- `get_project_sections` - List sections in a project
+- `add_task_to_project` - Add task to project or move to section
+- `remove_task_from_project` - Remove task from project
 
 ### Formatting Guide for Task Notes and Comments
 
@@ -777,6 +796,64 @@ node index.js projects --archived false --format table
 
 # Custom fields
 node index.js projects --name "API" --fields name,gid,owner.name,due_date
+```
+
+#### List Project Sections
+
+```bash
+node index.js sections <project_gid> [options]
+```
+
+Lists all sections in a project. Useful for finding section GIDs to move tasks into specific sections.
+
+**Options:**
+- `--format <list|table|json>` - Output format (default: list)
+- `--fields <field1,field2>` - Fields to display (default: name,gid)
+
+**Example:**
+
+```bash
+node index.js sections 1234567890
+```
+
+### Task-Project Management
+
+#### Add Task to Project or Move to Section
+
+```bash
+node index.js add-to-project <task_gid> --project <project_gid> [--section <section_gid>]
+```
+
+Adds a task to a project. If the task is already in the project, moves it to the specified section.
+
+**Options:**
+- `--project <gid>` - Project GID (required)
+- `--section <gid>` - Section GID within the project (optional)
+
+**Examples:**
+
+```bash
+# Add task to a project
+node index.js add-to-project 1234567890 --project 9876543210
+
+# Move task to a specific section (if already in project)
+node index.js add-to-project 1234567890 --project 9876543210 --section 1111111111
+```
+
+**Tip:** Use `sections <project_gid>` to list all sections and find the section GID.
+
+#### Remove Task from Project
+
+```bash
+node index.js remove-from-project <task_gid> --project <project_gid>
+```
+
+Removes a task from a project.
+
+**Example:**
+
+```bash
+node index.js remove-from-project 1234567890 --project 9876543210
 ```
 
 ### Cache Management

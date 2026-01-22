@@ -66,12 +66,14 @@ const {
     getTask,
     getTaskStories,
     addTaskComment,
-    createTask,
+    extractAsanaTaskId,
+    createTask, 
     updateTask,
-    searchTasks,
-    extractAsanaTaskId
+    addTaskToProject,
+    removeTaskFromProject,
+    searchTasks 
 } = require('./lib/tasks');
-const { searchProjects } = require('./lib/projects');
+const { searchProjects, getSections } = require('./lib/projects');
 
 // Validation helpers
 function validateDateFormat(dateString, fieldName) {
@@ -104,7 +106,7 @@ function validateGid(gid, fieldName) {
 }
 
 // Initialize Asana client
-let client, tasksApiInstance, usersApiInstance, projectsApiInstance, storiesApiInstance;
+let client, tasksApiInstance, usersApiInstance, projectsApiInstance, storiesApiInstance, sectionsApiInstance;
 let currentUser = null;
 
 async function initializeAsana() {
@@ -121,7 +123,8 @@ async function initializeAsana() {
     usersApiInstance = apiInstances.usersApiInstance;
     projectsApiInstance = apiInstances.projectsApiInstance;
     storiesApiInstance = apiInstances.storiesApiInstance;
-
+    sectionsApiInstance = apiInstances.sectionsApiInstance;
+    
     // Get current user for workspace context
     currentUser = await getCurrentUser(usersApiInstance);
 
@@ -297,6 +300,42 @@ FORMATTING GUIDE:
                         url: { type: 'string', description: 'The Asana URL to extract task ID from' }
                     },
                     required: ['url']
+                }
+            },
+            {
+                name: 'get_project_sections',
+                description: 'Get sections for a project. Returns list of sections with name and GID.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        project_gid: { type: 'string', description: 'Project GID' }
+                    },
+                    required: ['project_gid']
+                }
+            },
+            {
+                name: 'add_task_to_project',
+                description: 'Add task to a project, or move task to a section if already in project. Use get_project_sections to find section GIDs.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        task_gid: { type: 'string', description: 'Task GID' },
+                        project_gid: { type: 'string', description: 'Project GID' },
+                        section_gid: { type: 'string', description: 'Section GID within the project (optional)' }
+                    },
+                    required: ['task_gid', 'project_gid']
+                }
+            },
+            {
+                name: 'remove_task_from_project',
+                description: 'Remove task from a project.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        task_gid: { type: 'string', description: 'Task GID' },
+                        project_gid: { type: 'string', description: 'Project GID' }
+                    },
+                    required: ['task_gid', 'project_gid']
                 }
             }
         ]
@@ -502,7 +541,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     storiesApiInstance,
                     args.task_gid,
                     { text: args.text },
-                    { convertMarkdown: true }
+                    { convertMarkdown: false }
                 );
 
                 result = {
@@ -602,7 +641,83 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 }
                 break;
             }
-
+            
+            case 'get_project_sections': {
+                // Validate required parameters
+                validateRequired(args.project_gid, 'project_gid');
+                validateGid(args.project_gid, 'project_gid');
+                
+                const sections = await getSections(sectionsApiInstance, args.project_gid);
+                
+                result = {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Found ${sections.length} section(s):\n\n` + 
+                                  sections.map(s => `- ${s.name} (GID: ${s.gid})`).join('\n')
+                        }
+                    ]
+                };
+                break;
+            }
+            
+            case 'add_task_to_project': {
+                // Validate required parameters
+                validateRequired(args.task_gid, 'task_gid');
+                validateRequired(args.project_gid, 'project_gid');
+                validateGid(args.task_gid, 'task_gid');
+                validateGid(args.project_gid, 'project_gid');
+                validateGid(args.section_gid, 'section_gid');
+                
+                await addTaskToProject(
+                    tasksApiInstance, 
+                    args.task_gid, 
+                    args.project_gid, 
+                    args.section_gid
+                );
+                
+                let message = `Task ${args.task_gid} `;
+                if (args.section_gid) {
+                    message += `moved to section ${args.section_gid} in project ${args.project_gid}`;
+                } else {
+                    message += `added to project ${args.project_gid}`;
+                }
+                
+                result = {
+                    content: [
+                        {
+                            type: 'text',
+                            text: message
+                        }
+                    ]
+                };
+                break;
+            }
+            
+            case 'remove_task_from_project': {
+                // Validate required parameters
+                validateRequired(args.task_gid, 'task_gid');
+                validateRequired(args.project_gid, 'project_gid');
+                validateGid(args.task_gid, 'task_gid');
+                validateGid(args.project_gid, 'project_gid');
+                
+                await removeTaskFromProject(
+                    tasksApiInstance, 
+                    args.task_gid, 
+                    args.project_gid
+                );
+                
+                result = {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Task ${args.task_gid} removed from project ${args.project_gid}`
+                        }
+                    ]
+                };
+                break;
+            }
+            
             default:
                 log('error', `Unknown tool: ${name}`);
                 throw new Error(`Unknown tool: ${name}`);
