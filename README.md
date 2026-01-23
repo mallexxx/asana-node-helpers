@@ -163,10 +163,10 @@ Cursor agents will now have access to Asana tools!
 ### Available MCP Tools
 
 - `search_tasks` - Search with filters (assignee, projects, dates, completion status, text, tags)
-- `get_task` - Get detailed task information
-- `save_task_notes` - Save task notes/description to file (markdown/HTML/raw)
+- `get_task` - Get detailed task information (notes, subtasks, projects, comments count, metadata)
+- `save_task_notes` - **Export task notes to file** - Save task description/notes for local review, editing, backup, or analysis. Extracts only the notes field (not full task metadata). Supports markdown (default, human-readable), HTML (raw Asana format), or raw text. Use this when you need to work with task content offline or create documentation from Asana tasks.
 - `create_task` - Create new tasks (supports markdown)
-- `update_task` - Update any task field
+- `update_task` - Update any task field (name, notes, assignee, dates, completion, etc.)
 - `add_comment` - Add comments (supports markdown)
 - `get_task_comments` - Get all comments for a task
 - `search_projects` - Find projects by name

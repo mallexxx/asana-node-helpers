@@ -191,7 +191,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: 'save_task_notes',
-                description: 'Save task notes/description to a file in markdown, HTML, or raw text format.',
+                description: 'Save task description to a file. Use this to: export task content for local review/editing, backup task documentation, create markdown files from Asana tasks, or analyze task descriptions offline. Extracts only the notes field (not full task metadata). Default format is markdown (recommended for readability), but also supports HTML (raw Asana format) or raw text.',
                 inputSchema: {
                     type: 'object',
                     properties: {
@@ -199,7 +199,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         file_path: { type: 'string', description: 'Path to save the file (absolute or relative to workspace)' },
                         format: { 
                             type: 'string', 
-                            description: 'Output format: "markdown" (default), "html", or "raw"',
+                            description: 'Output format: "markdown" (default, human-readable), "html" (raw Asana format), or "raw" (plain text)',
                             enum: ['markdown', 'html', 'raw']
                         }
                     },
