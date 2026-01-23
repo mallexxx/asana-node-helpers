@@ -119,6 +119,19 @@ if (require.main === module) {
         };
     }
     
+    function parseArgs(args) {
+        const options = {};
+        for (let i = 0; i < args.length; i++) {
+            if (args[i].startsWith('--')) {
+                const flag = args[i].substring(2);
+                const value = args[i + 1];
+                options[flag] = value;
+                i++;
+            }
+        }
+        return options;
+    }
+    
     function showHelp() {
         console.log('\n🚀 Asana Node Helpers\n');
         console.log('Usage: node index.js <command> [options]\n');
