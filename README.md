@@ -163,7 +163,14 @@ Cursor agents will now have access to Asana tools!
 ### Available MCP Tools
 
 - `search_tasks` - Search with filters (assignee, projects, dates, completion status, text, tags)
-- `get_task` - Get detailed task information (notes, subtasks, projects, comments count, metadata)
+  - **Smart defaults:** Returns 100 results by default (JSON response), or 1000 results when saving to file. Default sort: `created_at` descending (newest first). Default fields: `name`, `gid`, `assignee.name`, `due_on`, `due_at`, `projects.name`.
+  - **Automatic pagination:** Fetches up to specified `limit` (no hard max). Automatically paginates 100 results per page using millisecond-precision time-based pagination.
+  - **Intelligent sorting:** Defaults to `created_at` descending for all queries. Supports both `created_at` and `modified_at` sorting in ascending or descending order. For limits >100, only time-based sorts (`created_at`/`modified_at`) are allowed.
+  - **Field customization:** Control returned fields via `opt_fields`. Use presets: `minimal` (name, gid), `standard` (default), `full` (all common fields). Or specify custom fields: `"name,gid,tags.name,memberships.section.name"`.
+  - **File output:** Save results to file with `output_file` parameter in JSON, CSV, or Markdown format for large result sets. Use `append: true` to add to existing file (skips headers for CSV/markdown, uses newline-delimited JSON).
+  - **Date range filters:** Supports all date filters (due, start, created, completed, modified) with both date-only and ISO 8601 timestamp precision.
+  - **Pagination logging:** All pagination steps logged to `mcp-server.log` including timestamps, page boundaries, and progress.
+- `get_task` - Get detailed task information including `memberships` field (shows project + section placement), notes, subtasks, comments count, and all metadata
 - `save_task_notes` - **Export task notes to file** - Save task description/notes for local review, editing, backup, or analysis. Extracts only the notes field (not full task metadata). Supports markdown (default, human-readable), HTML (raw Asana format), or raw text. Use this when you need to work with task content offline or create documentation from Asana tasks.
 - `create_task` - Create new tasks (supports markdown)
 - `update_task` - Update any task field (name, notes, assignee, dates, completion, etc.)
@@ -172,8 +179,199 @@ Cursor agents will now have access to Asana tools!
 - `search_projects` - Find projects by name
 - `get_my_tasks` - Quick access to your incomplete tasks
 - `get_project_sections` - List sections in a project
+- `get_project_custom_fields` - **Discover custom fields** - Shows all custom fields defined for a project, including their names, types, GIDs, and possible values. Use this to find available custom fields, then include them in `opt_fields` to fetch their values with tasks.
+- `get_project_tasks` - **Get all tasks from a project** - More efficient than `search_tasks` for project-specific queries. Uses reliable offset-based pagination (unlike search which uses time-based). Can fetch `notes` field directly. Supports same field customization (minimal/standard/full presets). **Comprehensive filtering:** completed status, assignee (including unassigned), section, completed_since (API-level), modified_since (API-level). Default limit: 100 for JSON, 1000 for file output. Perfect for: exporting project data, analyzing task distributions, bulk operations on project tasks.
 - `add_task_to_project` - Add task to project or move to section
 - `remove_task_from_project` - Remove task from project
+
+### Choosing Between `search_tasks` and `get_project_tasks`
+
+**Use `get_project_tasks` when:**
+- ✅ Fetching all/most tasks from a specific project
+- ✅ You need reliable offset-based pagination
+- ✅ You want to fetch `notes` field (task descriptions) efficiently
+- ✅ You're exporting or analyzing entire projects
+- ✅ Filtering by: section, assignee (including unassigned), completed status, completed_since, or modified_since
+
+**Use `search_tasks` when:**
+- ✅ Searching across multiple projects or workspace-wide
+- ✅ You need complex date range filters (due dates, created dates, etc.)
+- ✅ You need text search in task names/descriptions
+- ✅ You need tag-based filtering
+- ✅ You need custom sorting by various fields
+
+**Key differences:**
+- **Pagination:** `get_project_tasks` uses offset-based (more reliable, faster) vs `search_tasks` uses time-based (required for workspace queries)
+- **Notes field:** `get_project_tasks` can fetch `notes` directly vs `search_tasks` cannot
+- **Filtering:**
+  - `get_project_tasks`: section, assignee (including unassigned), completed, completed_since (API-level), modified_since (API-level)
+  - `search_tasks`: all date ranges, text search, tags, multiple projects, custom sorting
+
+### Customizing Search Results Fields
+
+The `search_tasks` and `get_project_tasks` tools allow you to control which fields are returned using the `opt_fields` parameter. This optimizes performance and reduces response size.
+
+#### Field Presets
+
+Use presets for common scenarios:
+
+- **`minimal`**: Returns only `name` and `gid`
+  - Fastest option, smallest response
+  - Perfect for bulk operations where you just need task IDs
+  
+- **`standard`**: Returns `name`, `gid`, `assignee.name`, `due_on`, `due_at`, `projects.name` (default)
+  - Balanced option for typical workflows
+  - Includes enough context for most tasks
+  
+- **`full`**: Returns all common fields
+  - Includes: basic fields, dates, relationships, memberships, subtasks, engagement metrics
+  - Use when you need comprehensive task data
+
+#### Custom Field Selection
+
+Specify comma-separated field names for precise control:
+
+```json
+{
+  "assignee_any": "me",
+  "opt_fields": "name,gid,due_on,tags.name,memberships.section.name,created_at"
+}
+```
+
+#### Available Fields
+
+**Basic:** `name`, `gid`, `completed`, `notes`, `html_notes`
+
+**Dates:** `due_on`, `due_at`, `start_on`, `created_at`, `modified_at`
+
+**Relationships:** 
+- `assignee.name`, `assignee.gid`
+- `projects.name`, `projects.gid`
+- `tags.name`, `tags.gid`
+- `parent.name`, `parent.gid`
+
+**Memberships (project + section context):**
+- `memberships.project.name`, `memberships.project.gid`
+- `memberships.section.name`, `memberships.section.gid`
+
+**Subtasks:** `subtasks.name`, `subtasks.gid`, `subtasks.completed`
+
+**Engagement:** `num_hearts`, `num_likes`, `liked`
+
+**Custom Fields:** `custom_fields` (auto-expands to `gid`, `name`, `display_value`), or `custom_fields.name`, `custom_fields.display_value`
+  - **✨ Smart expansion:** `custom_fields` or `custom_fields.GID.display_value` automatically expands to include readable fields (gid, name, display_value) for all custom fields
+
+#### Examples
+
+```json
+// Quick GID lookup
+{
+  "projects_any": "1234567890",
+  "opt_fields": "minimal"
+}
+
+// Section-based workflow analysis
+{
+  "projects_any": "1234567890",
+  "opt_fields": "name,gid,assignee.name,memberships.section.name,tags.name",
+  "output_file": "/tmp/workflow.csv"
+}
+
+// Full data export
+{
+  "projects_any": "1234567890",
+  "opt_fields": "full",
+  "output_file": "/tmp/export.json"
+}
+```
+
+### Working with Custom Fields
+
+Custom fields are organization-specific fields that extend task metadata beyond Asana's standard fields (like "Priority", "Platform", "Status", etc.).
+
+#### Discovering Custom Fields
+
+Use `get_project_custom_fields` to see what custom fields are available:
+
+```json
+{
+  "project_gid": "1201048563534612"
+}
+```
+
+**Response shows:**
+- Field names (e.g., "Platform (Desktop Apps)")
+- Field types (`enum`, `number`, `text`, `people`, `multi_enum`, `date`)
+- Possible values for enum fields
+- GIDs for each field
+- How to fetch them in queries
+
+#### Fetching Custom Field Values
+
+**✨ Smart Expansion:** When you use `"custom_fields"` in `opt_fields`, it automatically expands to include `custom_fields.gid`, `custom_fields.name`, and `custom_fields.display_value` for readable output.
+
+**Method 1: Get all custom fields (simple)**
+```json
+{
+  "project_gid": "1201048563534612",
+  "opt_fields": "name,gid,assignee.name,custom_fields"
+}
+```
+
+The `custom_fields` automatically expands to include `gid`, `name`, and `display_value` (human-readable format).
+
+**Result:**
+```json
+{
+  "name": "Task Name",
+  "custom_fields": [
+    {
+      "gid": "1207480535420516",
+      "name": "Platform (Desktop Apps)",
+      "display_value": "macOS"
+    }
+  ]
+}
+```
+
+**Method 2: Get custom field details (for programmatic filtering)**
+```json
+{
+  "project_gid": "1201048563534612",
+  "opt_fields": "name,gid,custom_fields.name,custom_fields.enum_value.name,custom_fields.number_value,custom_fields.text_value"
+}
+```
+
+Returns raw field values by type (useful for programmatic filtering).
+
+#### Custom Field Types
+
+- **enum**: Single-select dropdown (e.g., "macOS", "Windows")
+  - Use `custom_fields.display_value` or `custom_fields.enum_value.name`
+- **multi_enum**: Multi-select dropdown
+  - Use `custom_fields.display_value` (comma-separated values)
+- **number**: Numeric value
+  - Use `custom_fields.number_value` or `custom_fields.display_value`
+- **text**: Text string
+  - Use `custom_fields.text_value` or `custom_fields.display_value`
+- **people**: User reference
+  - Use `custom_fields.display_value` for name
+- **date**: Date value
+  - Use `custom_fields.display_value`
+
+#### Example: Export with Custom Fields
+
+```json
+{
+  "project_gid": "1201048563534612",
+  "opt_fields": "name,gid,assignee.name,due_on,custom_fields.name,custom_fields.display_value",
+  "output_file": "/tmp/project-with-custom-fields.csv",
+  "output_format": "json",
+  "limit": 1000
+}
+```
+
+**Pro tip:** Always use `get_project_custom_fields` first to discover field names and GIDs, then use those in your queries.
 
 ### Formatting Guide for Task Notes and Comments
 
