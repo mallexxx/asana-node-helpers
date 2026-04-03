@@ -62,13 +62,21 @@ if (LOG_ENABLED) {
 const ASANA_ACCESS_MODE = (process.env.ASANA_MCP_ACCESS || 'all').toLowerCase();
 const IS_READONLY = ASANA_ACCESS_MODE === 'readonly' || ASANA_ACCESS_MODE === 'read-only' || ASANA_ACCESS_MODE === 'read';
 
-// Define which tools require write permissions
+// File write permissions - separate from Asana access control
+const ALLOW_FILE_WRITES = process.env.ASANA_MCP_ALLOW_FILE_WRITES !== 'false' && process.env.ASANA_MCP_ALLOW_FILE_WRITES !== '0';
+
+// Define which tools require Asana write permissions
 const WRITE_OPERATIONS = new Set([
     'create_task',
     'update_task',
     'add_comment',
     'add_task_to_project',
     'remove_task_from_project'
+]);
+
+// Define which tools require local file write permissions
+const FILE_WRITE_OPERATIONS = new Set([
+    'save_task_notes'
 ]);
 
 // Import our Asana helpers
@@ -514,6 +522,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 content: [{
                     type: "text",
                     text: `❌ ${errorMsg}\n\nTo enable write operations, set environment variable:\nASANA_MCP_ACCESS=all`
+                }],
+                isError: true
+            };
+        }
+
+        // Check file write permissions
+        if (!ALLOW_FILE_WRITES && FILE_WRITE_OPERATIONS.has(name)) {
+            const errorMsg = `Operation '${name}' not allowed: local file writes are disabled (ASANA_MCP_ALLOW_FILE_WRITES=false)`;
+            log('warn', 'Permission denied', { tool: name, allowFileWrites: ALLOW_FILE_WRITES });
+            return {
+                content: [{
+                    type: "text",
+                    text: `❌ ${errorMsg}\n\nTo enable local file writes, set environment variable:\nASANA_MCP_ALLOW_FILE_WRITES=true\n\nOr remove the variable (file writes are enabled by default)`
                 }],
                 isError: true
             };
@@ -1371,6 +1392,7 @@ async function main() {
             logEnabled: LOG_ENABLED,
             accessMode: ASANA_ACCESS_MODE,
             readonly: IS_READONLY,
+            allowFileWrites: ALLOW_FILE_WRITES,
             cwd: process.cwd(),
             dirname: __dirname,
             nodeVersion: process.version,

@@ -57,21 +57,27 @@ source ~/.zshrc
 Control what operations the MCP server allows:
 
 ```bash
-# Read-only mode (prevents accidental modifications)
+# Read-only mode (prevents accidental Asana modifications)
 export ASANA_MCP_ACCESS=readonly
 
 # Full access mode (default - allows all operations)
 export ASANA_MCP_ACCESS=all
+
+# Disable local file writes (default: enabled)
+export ASANA_MCP_ALLOW_FILE_WRITES=false
 ```
 
-**Read-only mode blocks:**
+**`ASANA_MCP_ACCESS=readonly` blocks:**
 - `create_task`
 - `update_task`
 - `add_comment`
 - `add_task_to_project`
 - `remove_task_from_project`
 
-**Always allowed:**
+**`ASANA_MCP_ALLOW_FILE_WRITES=false` blocks:**
+- `save_task_notes` (writes task notes to local file)
+
+**Always allowed (read operations):**
 - `search_tasks`
 - `get_task`
 - `get_task_comments`
@@ -79,9 +85,10 @@ export ASANA_MCP_ACCESS=all
 - `get_project_sections`
 - `get_project_custom_fields`
 - `search_projects`
-- `save_task_notes` (saves to local file)
 
-If `ASANA_MCP_ACCESS` is not set, defaults to full access (`all`).
+**Defaults:**
+- `ASANA_MCP_ACCESS` defaults to `all` (full Asana access)
+- `ASANA_MCP_ALLOW_FILE_WRITES` defaults to `true` (file writes enabled)
 
 **Example error in read-only mode:**
 ```
@@ -179,6 +186,7 @@ Add to your Cursor MCP settings (`.cursor/mcp_settings.json` in your project or 
       "env": {
         "ASANA_API_KEY": "your_asana_api_key_here",
         "ASANA_MCP_ACCESS": "all",
+        "ASANA_MCP_ALLOW_FILE_WRITES": "true",
         "NODE_TLS_REJECT_UNAUTHORIZED": "0",
         "MCP_LOG": "true"
       }
@@ -190,6 +198,7 @@ Add to your Cursor MCP settings (`.cursor/mcp_settings.json` in your project or 
 **Environment Variables:**
 - `ASANA_API_KEY` (required): Your Asana personal access token
 - `ASANA_MCP_ACCESS` (optional): Access control - `"readonly"` for read-only mode, `"all"` for full access (default: `"all"`)
+- `ASANA_MCP_ALLOW_FILE_WRITES` (optional): Allow local file writes - `"true"` or `"false"` (default: `"true"`)
 - `NODE_TLS_REJECT_UNAUTHORIZED` (optional): Set to "0" to disable SSL certificate verification (for corporate proxies)
 - `MCP_LOG` (optional): Set to "false" to disable logging (enabled by default)
 - `NODE_ENV` (optional): Set to "development" to include stack traces in error responses
