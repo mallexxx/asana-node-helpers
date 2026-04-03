@@ -58,6 +58,19 @@ if (LOG_ENABLED) {
     }
 }
 
+// Permission system - control what operations are allowed
+const ASANA_ACCESS_MODE = (process.env.ASANA_MCP_ACCESS || 'all').toLowerCase();
+const IS_READONLY = ASANA_ACCESS_MODE === 'readonly' || ASANA_ACCESS_MODE === 'read-only' || ASANA_ACCESS_MODE === 'read';
+
+// Define which tools require write permissions
+const WRITE_OPERATIONS = new Set([
+    'create_task',
+    'update_task',
+    'add_comment',
+    'add_task_to_project',
+    'remove_task_from_project'
+]);
+
 // Import our Asana helpers
 const { initializeClient } = require('./lib/client');
 const { getCurrentUser } = require('./lib/users');
@@ -493,6 +506,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     log('info', `Tool called: ${name}`, { args: sanitizedArgs });
 
     try {
+        // Check permissions - block write operations in readonly mode
+        if (IS_READONLY && WRITE_OPERATIONS.has(name)) {
+            const errorMsg = `Operation '${name}' not allowed: server is in read-only mode (ASANA_MCP_ACCESS=${ASANA_ACCESS_MODE})`;
+            log('warn', 'Permission denied', { tool: name, accessMode: ASANA_ACCESS_MODE });
+            return {
+                content: [{
+                    type: "text",
+                    text: `❌ ${errorMsg}\n\nTo enable write operations, set environment variable:\nASANA_MCP_ACCESS=all`
+                }],
+                isError: true
+            };
+        }
+
         // Ensure Asana is initialized
         if (!currentUser) {
             log('info', 'Initializing Asana client (first call)');
@@ -1343,6 +1369,8 @@ async function main() {
         const startupInfo = {
             logFile: LOG_FILE,
             logEnabled: LOG_ENABLED,
+            accessMode: ASANA_ACCESS_MODE,
+            readonly: IS_READONLY,
             cwd: process.cwd(),
             dirname: __dirname,
             nodeVersion: process.version,
